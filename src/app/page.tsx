@@ -24,22 +24,9 @@ export default function Home() {
   const { currentView, user, isLoading, currentPanel, restoreSession } = useAppStore();
   const mounted = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
 
-  const { login, setPanel } = useAppStore();
-
   useEffect(() => {
     restoreSession();
   }, [restoreSession]);
-
-  // Auto-login as master
-  useEffect(() => {
-    if (mounted && !user) {
-      login(
-        { id: 'master', name: 'Coordenação ENADE', email: 'master@unifecaf.br', role: 'MASTER', ra: 'MASTER001' },
-        'auto-master-token'
-      );
-      setPanel('master');
-    }
-  }, [mounted, user, login, setPanel]);
 
   if (!mounted || isLoading) {
     return (
@@ -69,7 +56,7 @@ export default function Home() {
     return <ProfessorPanel />;
   }
 
-  // Default: Student view
+  // Student view (default for ALUNO, also accessible by PROFESSOR/MASTER)
   return (
     <div className="flex h-screen overflow-hidden bg-[#0a0e17] jarvis-grid-bg">
       <ParticleBackground />

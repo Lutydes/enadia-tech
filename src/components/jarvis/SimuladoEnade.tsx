@@ -18,6 +18,13 @@ import {
   AlertTriangle,
   Lock,
   Zap,
+  FileText,
+  Send,
+  Loader2,
+  Lightbulb,
+  CheckSquare,
+  XSquare,
+  PenLine,
 } from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
 import {
@@ -79,6 +86,72 @@ const SIMULADO_TYPES: SimuladoTypeOption[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Essay (Dissertativa) question definitions
+// ---------------------------------------------------------------------------
+interface EssayQuestion {
+  id: string;
+  statement: string;
+  topic: string;
+  macroarea: string;
+}
+
+const ESSAY_QUESTIONS_POOL: EssayQuestion[] = [
+  {
+    id: 'essay-logica',
+    statement:
+      'CONTEXTO: A lógica proposicional é fundamental para a especificação e verificação de sistemas de software. Um engenheiro de software precisa argumentar formalmente sobre a corretude de um algoritmo de busca.\n\nCOMANDO: Discorra sobre a importância da lógica proposicional e da lógica de predicados na verificação formal de software. Apresente ao menos dois exemplos práticos de como estas ferramentas lógicas podem ser utilizadas para garantir a corretude de algoritmos. Justifique sua resposta com conceitos técnicos adequados.',
+    topic: 'Lógica Proposicional',
+    macroarea: 'Fundamentos da Computação',
+  },
+  {
+    id: 'essay-bd',
+    statement:
+      'CONTEXTO: Um sistema de gestão hospitalar precisa armazenar dados de pacientes, consultas, médicos e exames. O volume de dados cresce rapidamente e há necessidade de relatórios complexos e acesso rápido a informações críticas.\n\nCOMANDO: Compare os paradigmas de banco de dados relacional e NoSQL, discutindo as vantagens e desvantagens de cada abordagem para o cenário descrito. Apresente critérios técnicos para a escolha do paradigma mais adequado e proponha uma arquitetura que contemple as necessidades do sistema.',
+    topic: 'Banco de Dados',
+    macroarea: 'Desenvolvimento',
+  },
+  {
+    id: 'essay-engsoft',
+    statement:
+      'CONTEXTO: Uma startup de fintech está desenvolvendo uma plataforma de pagamento digital que deve atender a milhões de usuários, com requisitos rigorosos de segurança, disponibilidade e conformidade regulatória (LGPD).\n\nCOMANDO: Descreva quais metodologias de desenvolvimento de software e práticas de Engenharia de Software você adotaria para este projeto. Discuta como garantir a qualidade do software, a segurança dos dados dos usuários e a conformidade com a LGPD ao longo de todo o ciclo de vida do desenvolvimento.',
+    topic: 'Engenharia de Software',
+    macroarea: 'Desenvolvimento',
+  },
+  {
+    id: 'essay-ia',
+    statement:
+      'CONTEXTO: O uso de inteligência artificial em processos seletivos de empresas tem gerado debate sobre vieses algorítmicos e discriminação. Um sistema de triagem de currículos baseado em IA foi acusado de reproduzir vieses de gênero presentes nos dados históricos de contratação.\n\nCOMANDO: Analise os desafios éticos e técnicos relacionados ao uso de IA em processos decisórios automatizados. Discuta estratégias para mitigar vieses algorítmicos e proponha diretrizes para o desenvolvimento responsável de sistemas de IA, considerando aspectos técnicos, éticos e legais.',
+    topic: 'Inteligência Artificial',
+    macroarea: 'Segurança/IA',
+  },
+  {
+    id: 'essay-redes',
+    statement:
+      'CONTEXTO: Uma empresa multinacional precisa conectar suas filiais em diferentes continentes, garantindo segurança na transmissão de dados sensíveis e alta disponibilidade dos serviços de comunicação interna.\n\nCOMANDO: Proponha uma arquitetura de rede que atenda aos requisitos de segurança, disponibilidade e desempenho para o cenário descrito. Discuta as tecnologias e protocolos envolvidos, incluindo VPN, firewall, balanceamento de carga e redundância. Justifique tecnicamente cada escolha.',
+    topic: 'Redes',
+    macroarea: 'Desenvolvimento',
+  },
+  {
+    id: 'essay-so',
+    statement:
+      'CONTEXTO: Um servidor de aplicação hospeda múltiplos serviços críticos que competem por recursos de CPU, memória e I/O. Em períodos de pico, alguns serviços apresentam degradação significativa de desempenho.\n\nCOMANDO: Explique como o sistema operacional gerencia a alocação de recursos entre processos concorrentes. Discuta as estratégias de escalonamento, gerenciamento de memória e sistemas de arquivos que podem ser aplicadas para otimizar o desempenho do servidor, considerando os trade-offs envolvidos.',
+    topic: 'Sistemas Operacionais',
+    macroarea: 'Desenvolvimento',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Essay feedback interface
+// ---------------------------------------------------------------------------
+interface EssayFeedback {
+  score: number;
+  feedback: string;
+  strengths: string[];
+  weaknesses: string[];
+  suggestions: string;
+}
+
 export function SimuladoEnade() {
   const {
     quizQuestions,
@@ -115,6 +188,12 @@ export function SimuladoEnade() {
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Essay question state
+  const [essayQuestions, setEssayQuestions] = useState<EssayQuestion[]>([]);
+  const [essayAnswers, setEssayAnswers] = useState<Record<string, string>>({});
+  const [essayFeedbacks, setEssayFeedbacks] = useState<Record<string, EssayFeedback>>({});
+  const [essayLoading, setEssayLoading] = useState<Record<string, boolean>>({});
 
   const questionCounts = getQuestionCountByMicroarea();
   const currentQuestion = quizQuestions[currentQuestionIndex];
@@ -165,6 +244,12 @@ export function SimuladoEnade() {
     }
   }, [token]);
 
+  // Pick 1-2 essay questions when a simulado starts
+  const pickEssayQuestions = useCallback((): EssayQuestion[] => {
+    const shuffled = [...ESSAY_QUESTIONS_POOL].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 2);
+  }, []);
+
   const handleStart = () => {
     let count = localCount;
     let topic = localTopic;
@@ -184,6 +269,12 @@ export function SimuladoEnade() {
     setShowExplanation(null);
     setMarkedForReview(new Set());
     setQuestionStartTime(Date.now());
+
+    // Reset essay state and pick new essay questions
+    setEssayQuestions(pickEssayQuestions());
+    setEssayAnswers({});
+    setEssayFeedbacks({});
+    setEssayLoading({});
 
     // Start timer if needed
     if (timeLimitSeconds) {
@@ -274,6 +365,87 @@ export function SimuladoEnade() {
 
   const answeredCount = Object.keys(quizAnswers).length;
   const markedCount = markedForReview.size;
+
+  // ---------------------------------------------------------------------------
+  // Essay correction handler
+  // ---------------------------------------------------------------------------
+  const handleEssaySubmit = async (question: EssayQuestion) => {
+    const answer = essayAnswers[question.id];
+    if (!answer || answer.trim().length < 20) return;
+
+    setEssayLoading((prev) => ({ ...prev, [question.id]: true }));
+
+    try {
+      const res = await fetch('/api/chat/essay-correct', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          questionId: question.id,
+          questionStatement: question.statement,
+          answer: answer.trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const errorMessage = (errData as { error?: string }).error || 'Erro ao corrigir a resposta.';
+        setEssayFeedbacks((prev) => ({
+          ...prev,
+          [question.id]: {
+            score: 0,
+            feedback: errorMessage,
+            strengths: [],
+            weaknesses: [],
+            suggestions: 'Tente novamente mais tarde.',
+          },
+        }));
+        return;
+      }
+
+      const data = await res.json();
+      setEssayFeedbacks((prev) => ({
+        ...prev,
+        [question.id]: {
+          score: data.score ?? 0,
+          feedback: data.feedback ?? '',
+          strengths: data.strengths ?? [],
+          weaknesses: data.weaknesses ?? [],
+          suggestions: data.suggestions ?? '',
+        },
+      }));
+    } catch {
+      setEssayFeedbacks((prev) => ({
+        ...prev,
+        [question.id]: {
+          score: 0,
+          feedback: 'Não foi possível conectar ao servidor de correção. Verifique sua conexão e tente novamente.',
+          strengths: [],
+          weaknesses: [],
+          suggestions: 'Tente novamente mais tarde.',
+        },
+      }));
+    } finally {
+      setEssayLoading((prev) => ({ ...prev, [question.id]: false }));
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Score color helper
+  // ---------------------------------------------------------------------------
+  const getScoreColor = (score: number) => {
+    if (score >= 7) return 'text-emerald-400';
+    if (score >= 5) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  const getScoreBg = (score: number) => {
+    if (score >= 7) return 'bg-emerald-500/10 border-emerald-500/20';
+    if (score >= 5) return 'bg-yellow-500/10 border-yellow-500/20';
+    return 'bg-red-500/10 border-red-500/20';
+  };
 
   // START SCREEN
   if (!quizStarted && !quizCompleted) {
@@ -472,6 +644,14 @@ export function SimuladoEnade() {
               </div>
             )}
 
+            {/* Essay notice */}
+            {selectedMode && (
+              <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-cyan-500/5 border border-cyan-500/10 text-xs text-cyan-400/70">
+                <PenLine size={14} className="flex-shrink-0" />
+                <span>Após as questões objetivas, haverá 2 questões dissertativas corrigidas por IA.</span>
+              </div>
+            )}
+
             {/* Start button */}
             <motion.button
               onClick={handleStart}
@@ -592,12 +772,261 @@ export function SimuladoEnade() {
               })}
             </div>
 
+            {/* ───────────────────────────────────────────────────────────────────
+                ESSAY (DISSERTATIVA) QUESTIONS SECTION
+            ─────────────────────────────────────────────────────────────────── */}
+            {essayQuestions.length > 0 && (
+              <div className="space-y-4">
+                {/* Section header */}
+                <div className="flex items-center gap-3 pt-2">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-cyan-500/10">
+                    <FileText size={16} className="text-cyan-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-200">Questões Dissertativas</h3>
+                    <p className="text-[10px] text-slate-500">Escreva sua resposta e envie para correção por IA</p>
+                  </div>
+                </div>
+
+                {essayQuestions.map((eq, idx) => {
+                  const answer = essayAnswers[eq.id] || '';
+                  const feedback = essayFeedbacks[eq.id];
+                  const isLoading = essayLoading[eq.id] || false;
+                  const hasSubmitted = !!feedback;
+                  const charCount = answer.length;
+                  const minChars = 20;
+
+                  return (
+                    <motion.div
+                      key={eq.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 + idx * 0.1 }}
+                      className="jarvis-card p-6 space-y-4"
+                    >
+                      {/* Question header */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                          Dissertativa {idx + 1}
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          {eq.topic} • {eq.macroarea}
+                        </span>
+                      </div>
+
+                      {/* Question statement */}
+                      <div className="space-y-2">
+                        {eq.statement.includes('CONTEXTO') && (
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400/60 mb-1">
+                              Contexto
+                            </p>
+                            <p className="text-sm leading-relaxed text-slate-400 italic whitespace-pre-line">
+                              {eq.statement.split('COMANDO')[0]?.replace('CONTEXTO', '').trim()}
+                            </p>
+                          </div>
+                        )}
+                        {eq.statement.includes('COMANDO') ? (
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400/60 mb-1">
+                              Comando
+                            </p>
+                            <p className="text-sm leading-relaxed text-slate-200 font-medium whitespace-pre-line">
+                              {eq.statement.split('COMANDO')[1]?.trim()}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-sm leading-relaxed text-slate-200 whitespace-pre-line">
+                            {eq.statement}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Textarea for answer */}
+                      {!hasSubmitted && (
+                        <div className="space-y-2">
+                          <textarea
+                            value={answer}
+                            onChange={(e) =>
+                              setEssayAnswers((prev) => ({
+                                ...prev,
+                                [eq.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Escreva sua resposta aqui... (mínimo 20 caracteres)"
+                            rows={6}
+                            className="w-full bg-[#0a0e17] border border-cyan-500/20 rounded-xl text-sm text-white placeholder-slate-600 p-4 resize-y focus:outline-none focus:border-cyan-500/40 focus:ring-1 focus:ring-cyan-500/20 transition-all"
+                          />
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[10px] font-mono ${
+                              charCount >= minChars ? 'text-slate-500' : 'text-red-400/70'
+                            }`}>
+                              {charCount} / mín. {minChars} caracteres
+                            </span>
+                            <motion.button
+                              onClick={() => handleEssaySubmit(eq)}
+                              disabled={isLoading || charCount < minChars}
+                              whileHover={!isLoading && charCount >= minChars ? { scale: 1.03 } : {}}
+                              whileTap={!isLoading && charCount >= minChars ? { scale: 0.97 } : {}}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                                isLoading || charCount < minChars
+                                  ? 'bg-[#1e293b] border border-[#1e293b] text-slate-600 cursor-not-allowed'
+                                  : 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 text-cyan-400 hover:from-cyan-500/30 hover:to-blue-500/30'
+                              }`}
+                            >
+                              {isLoading ? (
+                                <>
+                                  <Loader2 size={14} className="animate-spin" />
+                                  Corrigindo...
+                                </>
+                              ) : (
+                                <>
+                                  <Send size={14} />
+                                  Enviar para Correção
+                                </>
+                              )}
+                            </motion.button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Loading overlay */}
+                      <AnimatePresence>
+                        {isLoading && (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="flex flex-col items-center justify-center py-6 gap-3"
+                          >
+                            <div className="relative">
+                              <div className="w-16 h-16 rounded-full border-2 border-cyan-500/20 flex items-center justify-center">
+                                <Loader2 size={28} className="animate-spin text-cyan-400" />
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-400">Analisando sua resposta com IA...</p>
+                            <p className="text-[10px] text-slate-600">Isso pode levar alguns segundos</p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Feedback display */}
+                      <AnimatePresence>
+                        {hasSubmitted && feedback && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="space-y-4"
+                          >
+                            {/* Score card */}
+                            <div className={`flex items-center gap-4 p-4 rounded-xl border ${getScoreBg(feedback.score)}`}>
+                              <div className="text-center">
+                                <div className={`text-4xl font-bold font-mono ${getScoreColor(feedback.score)}`}>
+                                  {feedback.score.toFixed(1)}
+                                </div>
+                                <p className="text-[10px] text-slate-500 mt-1">de 10.0</p>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-mono text-cyan-400/60 uppercase tracking-wider mb-1">
+                                  Feedback da IA
+                                </p>
+                                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                                  {feedback.feedback}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Strengths & Weaknesses side by side */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {/* Strengths */}
+                              {feedback.strengths.length > 0 && (
+                                <div className="jarvis-card p-4 border-l-2 border-l-emerald-500">
+                                  <p className="text-xs font-mono uppercase tracking-wider text-emerald-400/70 mb-2 flex items-center gap-1.5">
+                                    <CheckSquare size={12} /> Pontos Fortes
+                                  </p>
+                                  <ul className="space-y-1.5">
+                                    {feedback.strengths.map((s, i) => (
+                                      <li key={i} className="flex items-start gap-2 text-xs text-slate-300">
+                                        <CheckCircle size={12} className="text-emerald-500 flex-shrink-0 mt-0.5" />
+                                        <span>{s}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {/* Weaknesses */}
+                              {feedback.weaknesses.length > 0 && (
+                                <div className="jarvis-card p-4 border-l-2 border-l-red-500">
+                                  <p className="text-xs font-mono uppercase tracking-wider text-red-400/70 mb-2 flex items-center gap-1.5">
+                                    <XSquare size={12} /> Pontos a Melhorar
+                                  </p>
+                                  <ul className="space-y-1.5">
+                                    {feedback.weaknesses.map((w, i) => (
+                                      <li key={i} className="flex items-start gap-2 text-xs text-slate-300">
+                                        <XCircle size={12} className="text-red-500 flex-shrink-0 mt-0.5" />
+                                        <span>{w}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Suggestions */}
+                            {feedback.suggestions && (
+                              <div className="jarvis-card p-4 border-l-2 border-l-cyan-500">
+                                <p className="text-xs font-mono uppercase tracking-wider text-cyan-400/70 mb-2 flex items-center gap-1.5">
+                                  <Lightbulb size={12} /> Sugestões
+                                </p>
+                                <p className="text-sm text-slate-300 leading-relaxed">
+                                  {feedback.suggestions}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Your answer summary */}
+                            <div className="jarvis-card p-4">
+                              <p className="text-xs font-mono uppercase tracking-wider text-slate-500 mb-2">
+                                Sua Resposta
+                              </p>
+                              <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-line max-h-40 overflow-y-auto custom-scrollbar">
+                                {answer}
+                              </p>
+                            </div>
+
+                            {/* Retry button */}
+                            <button
+                              onClick={() => {
+                                setEssayFeedbacks((prev) => {
+                                  const next = { ...prev };
+                                  delete next[eq.id];
+                                  return next;
+                                });
+                              }}
+                              className="text-xs text-cyan-400/50 hover:text-cyan-400 flex items-center gap-1.5 transition-colors"
+                            >
+                              <RotateCcw size={12} /> Reescrever resposta
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex gap-3">
               <motion.button
                 onClick={() => {
                   resetQuiz();
                   setSelectedMode(null);
+                  setEssayQuestions([]);
+                  setEssayAnswers({});
+                  setEssayFeedbacks({});
+                  setEssayLoading({});
                 }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}

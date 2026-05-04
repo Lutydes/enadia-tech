@@ -22,6 +22,9 @@ interface RankingEntry {
   email: string;
   ra: string | null;
   role: string;
+  curso: string | null;
+  modalidade: string | null;
+  periodo: number | null;
   totalAnswered: number;
   totalCorrect: number;
   hitRate: number;
@@ -246,12 +249,24 @@ export function RankingAlunos() {
                         </span>
                       </div>
 
-                      {/* Name & RA */}
+                      {/* Name & details */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-slate-200 truncate">{entry.name}</p>
-                        <p className="text-[10px] text-slate-500 font-mono">
-                          {entry.ra || entry.email}
-                        </p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="text-[10px] text-slate-500 font-mono">
+                            {entry.ra || entry.email}
+                          </p>
+                          {entry.curso && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400/70 border border-cyan-500/10">
+                              {entry.curso}
+                            </span>
+                          )}
+                          {entry.modalidade && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400/70 border border-purple-500/10">
+                              {entry.modalidade}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Stats */}
@@ -309,7 +324,19 @@ function PodiumCard({ entry }: { entry: RankingEntry }) {
         </div>
       </div>
       <h4 className="text-sm font-semibold text-slate-200 truncate">{entry.name}</h4>
-      <p className="text-[10px] text-slate-500 font-mono mb-3">{entry.ra || entry.email}</p>
+      <p className="text-[10px] text-slate-500 font-mono mb-1">{entry.ra || entry.email}</p>
+      <div className="flex items-center justify-center gap-1.5 mb-3 flex-wrap">
+        {entry.curso && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400/70 border border-cyan-500/10">
+            {entry.curso}
+          </span>
+        )}
+        {entry.modalidade && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400/70 border border-purple-500/10">
+            {entry.modalidade}
+          </span>
+        )}
+      </div>
 
       <div className="grid grid-cols-3 gap-2">
         <div className="p-2 rounded-lg bg-black/20">

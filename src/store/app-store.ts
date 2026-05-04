@@ -15,6 +15,10 @@ export interface UserData {
   email: string;
   role: UserRole;
   ra?: string;
+  curso?: string;
+  periodo?: number;
+  modalidade?: string;
+  disciplina?: string;
 }
 
 interface AppState {

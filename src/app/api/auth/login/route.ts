@@ -50,6 +50,10 @@ export async function POST(request: NextRequest) {
         ra: user.ra,
         avatar: user.avatar,
         active: user.active,
+        curso: user.curso,
+        periodo: user.periodo,
+        modalidade: user.modalidade,
+        disciplina: user.disciplina,
       },
       token,
     });

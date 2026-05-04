@@ -23,6 +23,10 @@ export async function GET(
         ra: true,
         avatar: true,
         active: true,
+        curso: true,
+        periodo: true,
+        modalidade: true,
+        disciplina: true,
         lastLogin: true,
         createdAt: true,
         updatedAt: true,
@@ -58,7 +62,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, email, role, ra, active, password } = body;
+    const { name, email, role, ra, active, password, curso, periodo, modalidade, disciplina } = body;
 
     const existing = await db.user.findUnique({ where: { id } });
     if (!existing) {
@@ -70,6 +74,10 @@ export async function PUT(
     if (role !== undefined) updateData.role = role;
     if (active !== undefined) updateData.active = active;
     if (password) updateData.password = await hashPassword(password);
+    if (curso !== undefined) updateData.curso = curso;
+    if (periodo !== undefined) updateData.periodo = periodo ? parseInt(String(periodo)) : null;
+    if (modalidade !== undefined) updateData.modalidade = modalidade;
+    if (disciplina !== undefined) updateData.disciplina = disciplina;
 
     if (email && email !== existing.email) {
       const emailTaken = await db.user.findFirst({ where: { email, NOT: { id } } });
@@ -96,6 +104,10 @@ export async function PUT(
         ra: true,
         avatar: true,
         active: true,
+        curso: true,
+        periodo: true,
+        modalidade: true,
+        disciplina: true,
         lastLogin: true,
         createdAt: true,
         updatedAt: true,

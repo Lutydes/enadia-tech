@@ -3,9 +3,12 @@ import { verifyToken } from '@/lib/auth';
 
 const PUBLIC_API_ROUTES = [
   '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/forgot-password',
   '/api/microareas',
   '/api/elements',
   '/api/chat',
+  '/api/chat/essay-correct',
   '/api/phases',
   '/api/ranking',
   '/api/test-db',

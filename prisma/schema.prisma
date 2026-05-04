@@ -40,24 +40,40 @@ enum SimuladoType {
   ENADE_SIMULADO
 }
 
+enum Modalidade {
+  EAD
+  PRESENCIAL
+  SEMIPRESENCIAL
+}
+
 // ─── MODELS ──────────────────────────────────────────
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
+  id            String       @id @default(cuid())
+  email         String       @unique
   name          String
   password      String
-  role          Role     @default(ALUNO)
-  ra            String?  @unique
+  role          Role         @default(ALUNO)
+  ra            String?      @unique
   avatar        String?
-  active        Boolean  @default(true)
+  active        Boolean      @default(true)
   lastLogin     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+
+  // Student fields
+  curso         String?
+  periodo       Int?
+  modalidade    Modalidade?  @default(PRESENCIAL)
+
+  // Professor fields
+  disciplina    String?
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   responses          StudentResponse[]
   authoredQuestions   Question[] @relation("QuestionAuthor")
   validatedQuestions Question[] @relation("QuestionValidator")
+  essayAnswers       EssayAnswer[]
 }
 
 model Microarea {
@@ -120,6 +136,7 @@ model Question {
   responses       StudentResponse[]
   simuladoConfigs SimuladoConfig[]
   tags            QuestionTag[]
+  essayAnswers    EssayAnswer[]
 
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -170,6 +187,19 @@ model StudentResponse {
   answer        String
   isCorrect     Boolean?
   responseTime  Int?
+  createdAt     DateTime  @default(now())
+}
+
+model EssayAnswer {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  questionId    String
+  question      Question  @relation(fields: [questionId], references: [id])
+  simuladoId    String?
+  answer        String
+  aiFeedback    String?
+  aiScore       Float?
   createdAt     DateTime  @default(now())
 }
 

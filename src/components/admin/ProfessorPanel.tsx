@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useAppStore } from '@/store/app-store';
+import { printReport } from '@/lib/print-utils';
 import {
   FileQuestion,
   Plus,
@@ -34,7 +35,6 @@ import {
   Edit,
   Trash2,
   Eye,
-  RefreshCw,
   Send,
   Save,
   AlertTriangle,
@@ -42,12 +42,17 @@ import {
   TrendingUp,
   BookOpen,
   Target,
-  Lightbulb,
-  ChevronDown,
-  ChevronUp,
   Search,
   Filter,
   Sparkles,
+  Users,
+  Printer,
+  GraduationCap,
+  ClipboardList,
+  UserCheck,
+  Activity,
+  FileText,
+  MessageSquare,
 } from 'lucide-react';
 import {
   BarChart,
@@ -108,6 +113,85 @@ interface ElementData {
   id: string;
   name: string;
   microareaId: string;
+}
+
+interface RankingStudent {
+  position: number;
+  userId: string;
+  name: string;
+  email: string;
+  ra: string | null;
+  curso: string | null;
+  modalidade: string | null;
+  periodo: number | null;
+  totalAnswered: number;
+  totalCorrect: number;
+  hitRate: number;
+  avgResponseTime: number | null;
+}
+
+interface StudentReport {
+  user: { id: string; name: string; ra: string | null; role: string; createdAt: string };
+  overview: {
+    totalResponses: number;
+    correctResponses: number;
+    hitRate: number;
+    avgResponseTime: number | null;
+    recentActivity: number;
+  };
+  byMicroarea: Array<{
+    name: string; code: string; color: string; macroarea: string;
+    total: number; correct: number; hitRate: number;
+  }>;
+  byDifficulty: Array<{
+    difficulty: string; total: number; correct: number; hitRate: number;
+  }>;
+  simuladoHistory: Array<{
+    simulado: string; total: number; correct: number; hitRate: number; date: string;
+  }>;
+  strengths: Array<{
+    name: string; code: string; color: string; macroarea: string;
+    total: number; correct: number; hitRate: number;
+  }>;
+  weaknesses: Array<{
+    name: string; code: string; color: string; macroarea: string;
+    total: number; correct: number; hitRate: number;
+  }>;
+  generatedAt: string;
+}
+
+interface EssayAnswerData {
+  id: string;
+  answer: string;
+  aiFeedback: string | null;
+  aiScore: number | null;
+  createdAt: string;
+  question: { id: string; code: string; statement: string; microarea: { name: string } };
+}
+
+interface ClassDashboard {
+  overview: {
+    totalUsers: number;
+    activeUsers: number;
+    studentsCount: number;
+    totalQuestions: number;
+    activeQuestions: number;
+    totalResponses: number;
+    avgHitRate: number;
+  };
+  questionsByStatus: Array<{ status: string; count: number }>;
+  byMicroarea: Array<{
+    name: string; code: string; color: string;
+    total: number; correct: number; hitRate: number;
+  }>;
+  studentRanking: Array<{
+    id: string; name: string; ra: string | null;
+    totalResponses: number; correct: number; hitRate: number;
+  }>;
+  simuladoStats: Array<{
+    id: string; title: string; type: string;
+    _count: { responses: number };
+  }>;
 }
 
 // === STATUS COLORS ===
@@ -181,15 +265,13 @@ const emptyForm = {
 
 // === MAIN COMPONENT ===
 export function ProfessorPanel() {
-  const { user, token } = useAppStore();
+  const { token, setPanel, setCurrentView } = useAppStore();
   const [activeTab, setActiveTab] = useState('my-questions');
   const [loading, setLoading] = useState(true);
 
   // Questions
-  const [questions, setQuestions] = useState<QuestionData[]>([]);
   const [allQuestions, setAllQuestions] = useState<QuestionData[]>([]);
   const [questionFilter, setQuestionFilter] = useState({ status: '', microarea: '', difficulty: '' });
-  const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
   const [viewingQuestion, setViewingQuestion] = useState<QuestionData | null>(null);
 
   // Create form
@@ -207,6 +289,17 @@ export function ProfessorPanel() {
     chartData: [] as Array<{ month: string; criadas: number; aprovadas: number }>,
     radarData: [] as Array<{ microarea: string; questoes: number }>,
   });
+
+  // Student Reports
+  const [rankingStudents, setRankingStudents] = useState<RankingStudent[]>([]);
+  const [studentSearch, setStudentSearch] = useState('');
+  const [selectedStudentReport, setSelectedStudentReport] = useState<StudentReport | null>(null);
+  const [studentEssays, setStudentEssays] = useState<EssayAnswerData[]>([]);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportStudentInfo, setReportStudentInfo] = useState<RankingStudent | null>(null);
+
+  // Class Dashboard
+  const [classDashboard, setClassDashboard] = useState<ClassDashboard | null>(null);
 
   const fetchHeaders = useCallback(() => ({
     'Content-Type': 'application/json',
@@ -238,7 +331,6 @@ export function ProfessorPanel() {
         if (d.professorStats) {
           setStats(d.professorStats);
         } else {
-          // Calculate from questions
           const qs = allQuestions.length > 0 ? allQuestions : [];
           setStats({
             total: qs.length,
@@ -249,6 +341,10 @@ export function ProfessorPanel() {
             radarData: d.radarData || [],
           });
         }
+        // Store class dashboard data
+        if (d.overview) {
+          setClassDashboard(d as ClassDashboard);
+        }
       }
     } catch (err) {
       console.error('Error loading professor data:', err);
@@ -257,9 +353,38 @@ export function ProfessorPanel() {
     }
   }, [fetchHeaders, allQuestions.length]);
 
+  // Load ranking students
+  const loadRankingStudents = useCallback(async () => {
+    try {
+      const res = await fetch('/api/ranking?limit=100', { headers: fetchHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setRankingStudents(data.ranking || []);
+      }
+    } catch (err) {
+      console.error('Error loading ranking:', err);
+    }
+  }, [fetchHeaders]);
+
+  // Load class dashboard
+  const loadClassDashboard = useCallback(async () => {
+    try {
+      const res = await fetch('/api/dashboard/collective', { headers: fetchHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.overview) {
+          setClassDashboard(data);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading class dashboard:', err);
+    }
+  }, [fetchHeaders]);
+
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    loadRankingStudents();
+  }, [loadData, loadRankingStudents]);
 
   // Load elements when microarea changes
   useEffect(() => {
@@ -273,6 +398,13 @@ export function ProfessorPanel() {
     }
   }, [form.microareaId, fetchHeaders]);
 
+  // Load class dashboard when dashboard tab is selected
+  useEffect(() => {
+    if (activeTab === 'dashboard') {
+      loadClassDashboard();
+    }
+  }, [activeTab, loadClassDashboard]);
+
   // Filter questions
   const filteredQuestions = allQuestions.filter(q => {
     if (questionFilter.status && q.status !== questionFilter.status) return false;
@@ -280,6 +412,45 @@ export function ProfessorPanel() {
     if (questionFilter.microarea && q.microareaId !== questionFilter.microarea) return false;
     return true;
   });
+
+  // Filter students by search
+  const filteredStudents = rankingStudents.filter(s => {
+    if (!studentSearch) return true;
+    const term = studentSearch.toLowerCase();
+    return (
+      s.name.toLowerCase().includes(term) ||
+      (s.ra && s.ra.toLowerCase().includes(term)) ||
+      (s.curso && s.curso.toLowerCase().includes(term))
+    );
+  });
+
+  // Load student report
+  const handleViewStudentReport = async (student: RankingStudent) => {
+    setReportLoading(true);
+    setReportStudentInfo(student);
+    setSelectedStudentReport(null);
+    setStudentEssays([]);
+    try {
+      const [reportRes, essayRes] = await Promise.allSettled([
+        fetch(`/api/reports/individual/${student.userId}`, { headers: fetchHeaders() }),
+        fetch(`/api/reports/individual/${student.userId}/essays`, { headers: fetchHeaders() }),
+      ]);
+
+      if (reportRes.status === 'fulfilled' && reportRes.value.ok) {
+        const reportData = await reportRes.value.json();
+        setSelectedStudentReport(reportData);
+      }
+
+      if (essayRes.status === 'fulfilled' && essayRes.value.ok) {
+        const essayData = await essayRes.value.json();
+        setStudentEssays(essayData.essays || []);
+      }
+    } catch (err) {
+      console.error('Error loading student report:', err);
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
   // Handle create question
   const handleSaveDraft = async () => {
@@ -346,7 +517,6 @@ export function ProfessorPanel() {
         const data = await res.json();
         const questionId = data.id || data.question?.id;
         if (questionId) {
-          // Send for pre-test
           await fetch(`/api/questions/${questionId}/test`, {
             method: 'POST',
             headers: fetchHeaders(),
@@ -419,6 +589,19 @@ export function ProfessorPanel() {
   const pretestQuestions = allQuestions.filter(q => ['EM_TESTE', 'AGUARDANDO_TESTE'].includes(q.status));
   const validationQuestions = allQuestions.filter(q => q.status === 'AGUARDANDO_VALIDACAO');
 
+  // Hit rate color helper
+  const hitRateColor = (rate: number) => {
+    if (rate >= 70) return 'text-emerald-400';
+    if (rate >= 50) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  const hitRateBg = (rate: number) => {
+    if (rate >= 70) return 'bg-emerald-500/10';
+    if (rate >= 50) return 'bg-yellow-500/10';
+    return 'bg-red-500/10';
+  };
+
   return (
     <AdminLayout panelType="professor">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
@@ -430,6 +613,8 @@ export function ProfessorPanel() {
               { value: 'create', label: 'Criar Questão', icon: <Plus size={14} /> },
               { value: 'pre-test', label: 'Pré-teste Gemini', icon: <Brain size={14} />, badge: pretestQuestions.length },
               { value: 'validate', label: 'Validar Questões', icon: <CheckCircle2 size={14} />, badge: validationQuestions.length },
+              { value: 'student-reports', label: 'Relatório de Alunos', icon: <Users size={14} />, badge: rankingStudents.length },
+              { value: 'simulados', label: 'Simulados', icon: <ClipboardList size={14} /> },
               { value: 'dashboard', label: 'Dashboard', icon: <BarChart3 size={14} /> },
             ].map(tab => (
               <TabsTrigger
@@ -1026,10 +1211,451 @@ export function ProfessorPanel() {
             </motion.div>
           </TabsContent>
 
+          {/* ======================== RELATÓRIO DE ALUNOS ======================== */}
+          <TabsContent value="student-reports">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <Users size={16} className="text-cyan-400" />
+                  <h3 className="text-sm font-mono text-cyan-400 tracking-wider">Relatório de Alunos</h3>
+                  <Badge className="text-[10px] font-mono bg-cyan-500/20 text-cyan-400">{rankingStudents.length} alunos</Badge>
+                </div>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <Input
+                    value={studentSearch}
+                    onChange={e => setStudentSearch(e.target.value)}
+                    placeholder="Buscar aluno..."
+                    className="pl-9 bg-[#0a0e17] border-cyan-500/20 text-white placeholder:text-gray-600 font-mono text-xs h-9 w-64"
+                  />
+                </div>
+              </div>
+
+              {filteredStudents.length === 0 ? (
+                <div className="jarvis-card p-12 text-center">
+                  <Users size={40} className="mx-auto text-cyan-500/20 mb-4" />
+                  <p className="text-gray-500 font-mono text-sm">Nenhum aluno encontrado</p>
+                  <p className="text-gray-600 font-mono text-xs mt-1">Alunos aparecerão aqui após responderem questões</p>
+                </div>
+              ) : (
+                <div className="jarvis-card overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b border-cyan-500/10 hover:bg-transparent">
+                        <TableHead className="text-xs font-mono text-gray-400">#</TableHead>
+                        <TableHead className="text-xs font-mono text-gray-400">Aluno</TableHead>
+                        <TableHead className="text-xs font-mono text-gray-400 hidden sm:table-cell">RA</TableHead>
+                        <TableHead className="text-xs font-mono text-gray-400 hidden md:table-cell">Curso</TableHead>
+                        <TableHead className="text-xs font-mono text-gray-400 text-center">Questões</TableHead>
+                        <TableHead className="text-xs font-mono text-gray-400 text-center">Acerto</TableHead>
+                        <TableHead className="text-xs font-mono text-gray-400 text-center">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredStudents.map((s) => (
+                        <TableRow key={s.userId} className="border-b border-cyan-500/5 hover:bg-white/[0.02]">
+                          <TableCell className="text-xs text-gray-500 font-mono">{s.position}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center flex-shrink-0">
+                                <span className="text-[10px] font-bold text-cyan-400">{s.name.charAt(0).toUpperCase()}</span>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-200 font-mono">{s.name}</p>
+                                {s.modalidade && (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-purple-500/10 text-purple-400/70 border border-purple-500/10">{s.modalidade}</span>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs text-gray-400 font-mono hidden sm:table-cell">{s.ra || '—'}</TableCell>
+                          <TableCell className="text-xs text-gray-400 font-mono hidden md:table-cell max-w-[120px] truncate">{s.curso || '—'}</TableCell>
+                          <TableCell className="text-xs text-gray-300 font-mono text-center">{s.totalAnswered}</TableCell>
+                          <TableCell className="text-center">
+                            <span className={`text-xs font-mono font-bold ${s.totalAnswered > 0 ? hitRateColor(s.hitRate) : 'text-gray-600'}`}>
+                              {s.totalAnswered > 0 ? `${s.hitRate}%` : '—'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 font-mono text-[11px]"
+                                onClick={() => handleViewStudentReport(s)}
+                              >
+                                <Eye size={12} className="mr-1" /> Ver Relatório
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {/* Student Report Dialog */}
+              <Dialog open={!!selectedStudentReport} onOpenChange={() => { setSelectedStudentReport(null); setStudentEssays([]); setReportStudentInfo(null); }}>
+                <DialogContent className="bg-[#0d1321] border-cyan-500/20 max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="text-cyan-400 font-mono flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <FileText size={16} /> Relatório do Aluno
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 font-mono text-xs ml-4"
+                        onClick={() => printReport('student-report-content')}
+                      >
+                        <Printer size={12} className="mr-1" /> Imprimir Relatório
+                      </Button>
+                    </DialogTitle>
+                  </DialogHeader>
+
+                  {reportLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="w-8 h-8 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin" />
+                    </div>
+                  ) : selectedStudentReport && reportStudentInfo ? (
+                    <div id="student-report-content" className="space-y-6">
+                      {/* Student Info */}
+                      <div className="jarvis-card p-4">
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center flex-shrink-0">
+                            <span className="text-lg font-bold text-cyan-400">{reportStudentInfo.name.charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-sm font-mono text-white font-bold">{reportStudentInfo.name}</h4>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                              {reportStudentInfo.ra && <span className="text-xs text-gray-400 font-mono">RA: {reportStudentInfo.ra}</span>}
+                              {reportStudentInfo.curso && <span className="text-xs text-gray-400 font-mono">Curso: {reportStudentInfo.curso}</span>}
+                              {reportStudentInfo.periodo && <span className="text-xs text-gray-400 font-mono">Período: {reportStudentInfo.periodo}º</span>}
+                              {reportStudentInfo.modalidade && <span className="text-xs text-gray-400 font-mono">Modalidade: {reportStudentInfo.modalidade}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Overview Stats */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                          { label: 'Total Respondidas', value: selectedStudentReport.overview.totalResponses, color: 'text-cyan-400' },
+                          { label: 'Corretas', value: selectedStudentReport.overview.correctResponses, color: 'text-green-400' },
+                          { label: 'Taxa de Acerto', value: `${selectedStudentReport.overview.hitRate}%`, color: hitRateColor(selectedStudentReport.overview.hitRate) },
+                          { label: 'Atividade Recente', value: selectedStudentReport.overview.recentActivity, color: 'text-purple-400' },
+                        ].map(stat => (
+                          <div key={stat.label} className="jarvis-card p-3 text-center">
+                            <p className={`text-xl font-bold font-mono ${stat.color}`}>{stat.value}</p>
+                            <p className="text-[10px] text-gray-500 font-mono mt-1">{stat.label}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Performance by Microarea - Radar Chart */}
+                      {selectedStudentReport.byMicroarea.length > 0 && (
+                        <div className="jarvis-card p-4">
+                          <h4 className="text-sm font-mono text-cyan-400 tracking-wider mb-4 flex items-center gap-2">
+                            <Target size={14} /> Desempenho por Microárea
+                          </h4>
+                          <div className="h-72">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <RadarChart data={selectedStudentReport.byMicroarea.slice(0, 8).map(m => ({
+                                microarea: m.name.length > 15 ? m.name.substring(0, 15) + '...' : m.name,
+                                taxa: m.hitRate,
+                                total: m.total,
+                              }))}>
+                                <PolarGrid stroke="#1e293b" />
+                                <PolarAngleAxis dataKey="microarea" tick={{ fill: '#94a3b8', fontSize: 9, fontFamily: 'monospace' }} />
+                                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#94a3b8', fontSize: 9 }} />
+                                <Radar name="Taxa de Acerto (%)" dataKey="taxa" stroke="#00f0ff" fill="#00f0ff" fillOpacity={0.15} />
+                                <Tooltip content={<CustomTooltip />} />
+                              </RadarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Strengths & Weaknesses */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedStudentReport.strengths.length > 0 && (
+                          <div className="jarvis-card p-4">
+                            <h4 className="text-sm font-mono text-green-400 tracking-wider mb-3 flex items-center gap-2">
+                              <TrendingUp size={14} /> Pontos Fortes
+                            </h4>
+                            <div className="space-y-2">
+                              {selectedStudentReport.strengths.map((s, i) => (
+                                <div key={i} className="flex items-center justify-between p-2 rounded bg-green-500/5 border border-green-500/10">
+                                  <span className="text-xs text-gray-300 font-mono truncate flex-1">{s.name}</span>
+                                  <span className="text-xs font-mono font-bold text-green-400 ml-2">{s.hitRate}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {selectedStudentReport.weaknesses.length > 0 && (
+                          <div className="jarvis-card p-4">
+                            <h4 className="text-sm font-mono text-red-400 tracking-wider mb-3 flex items-center gap-2">
+                              <AlertTriangle size={14} /> Pontos a Melhorar
+                            </h4>
+                            <div className="space-y-2">
+                              {selectedStudentReport.weaknesses.map((w, i) => (
+                                <div key={i} className="flex items-center justify-between p-2 rounded bg-red-500/5 border border-red-500/10">
+                                  <span className="text-xs text-gray-300 font-mono truncate flex-1">{w.name}</span>
+                                  <span className="text-xs font-mono font-bold text-red-400 ml-2">{w.hitRate}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Simulado History */}
+                      {selectedStudentReport.simuladoHistory.length > 0 && (
+                        <div className="jarvis-card p-4">
+                          <h4 className="text-sm font-mono text-cyan-400 tracking-wider mb-3 flex items-center gap-2">
+                            <ClipboardList size={14} /> Resultados de Simulados
+                          </h4>
+                          <div className="space-y-2">
+                            {selectedStudentReport.simuladoHistory.map((sim, i) => (
+                              <div key={i} className="flex items-center justify-between p-3 rounded bg-white/[0.02] border border-cyan-500/10">
+                                <div>
+                                  <p className="text-xs text-gray-200 font-mono">{sim.simulado}</p>
+                                  <p className="text-[10px] text-gray-500 font-mono">{new Date(sim.date).toLocaleDateString('pt-BR')}</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-xs text-gray-400 font-mono">{sim.correct}/{sim.total}</span>
+                                  <span className={`text-xs font-mono font-bold ${hitRateColor(sim.hitRate)}`}>{sim.hitRate}%</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Essay Answers with AI Feedback */}
+                      {studentEssays.length > 0 && (
+                        <div className="jarvis-card p-4">
+                          <h4 className="text-sm font-mono text-cyan-400 tracking-wider mb-3 flex items-center gap-2">
+                            <MessageSquare size={14} /> Respostas Dissertativas com Feedback IA
+                          </h4>
+                          <div className="space-y-3 max-h-96 overflow-y-auto">
+                            {studentEssays.map((essay) => (
+                              <div key={essay.id} className="p-3 rounded-lg border border-cyan-500/10 bg-white/[0.02]">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div>
+                                    <span className="text-xs text-cyan-400/80 font-mono">{essay.question.code}</span>
+                                    <span className="text-xs text-gray-500 font-mono ml-2">— {essay.question.microarea.name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {essay.aiScore !== null && (
+                                      <Badge className={`text-[10px] font-mono ${essay.aiScore >= 7 ? 'bg-green-500/20 text-green-400' : essay.aiScore >= 5 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
+                                        Nota: {essay.aiScore.toFixed(1)}/10
+                                      </Badge>
+                                    )}
+                                    <span className="text-[10px] text-gray-500 font-mono">{new Date(essay.createdAt).toLocaleDateString('pt-BR')}</span>
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-gray-500 font-mono mb-1 line-clamp-1">Questão: {essay.question.statement}</p>
+                                <p className="text-xs text-gray-300 font-mono mb-2 line-clamp-2 italic">Resposta: {essay.answer}</p>
+                                {essay.aiFeedback && (
+                                  <div className="p-2 rounded bg-purple-500/5 border border-purple-500/10">
+                                    <p className="text-[10px] text-purple-400/80 font-mono mb-1">FEEDBACK IA:</p>
+                                    <p className="text-xs text-gray-400 font-mono whitespace-pre-wrap line-clamp-4">{essay.aiFeedback}</p>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Performance by Difficulty */}
+                      {selectedStudentReport.byDifficulty.length > 0 && (
+                        <div className="jarvis-card p-4">
+                          <h4 className="text-sm font-mono text-cyan-400 tracking-wider mb-3 flex items-center gap-2">
+                            <BarChart3 size={14} /> Desempenho por Dificuldade
+                          </h4>
+                          <div className="h-48">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={selectedStudentReport.byDifficulty.map(d => ({
+                                difficulty: d.difficulty,
+                                taxa: d.hitRate,
+                                total: d.total,
+                              }))}>
+                                <XAxis dataKey="difficulty" tick={{ fill: '#94a3b8', fontSize: 10, fontFamily: 'monospace' }} axisLine={{ stroke: '#1e293b' }} />
+                                <YAxis domain={[0, 100]} tick={{ fill: '#94a3b8', fontSize: 10, fontFamily: 'monospace' }} axisLine={{ stroke: '#1e293b' }} />
+                                <Tooltip content={<CustomTooltip />} />
+                                <Bar dataKey="taxa" name="Taxa de Acerto (%)" fill="#00f0ff" radius={[4, 4, 0, 0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Generated At */}
+                      <p className="text-[10px] text-gray-600 font-mono text-center">
+                        Relatório gerado em {new Date(selectedStudentReport.generatedAt).toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                  ) : null}
+                </DialogContent>
+              </Dialog>
+            </motion.div>
+          </TabsContent>
+
+          {/* ======================== SIMULADOS ======================== */}
+          <TabsContent value="simulados">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
+              <div className="flex items-center gap-3 mb-2">
+                <ClipboardList size={16} className="text-cyan-400" />
+                <h3 className="text-sm font-mono text-cyan-400 tracking-wider">Simulados como Professor</h3>
+              </div>
+
+              {/* Warning Notice */}
+              <div className="jarvis-card p-4 border-yellow-500/20 bg-yellow-500/5">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={18} className="text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-yellow-400 font-mono font-bold mb-1">Atenção</p>
+                    <p className="text-xs text-gray-400 font-mono">
+                      Simulados realizados como professor <span className="text-yellow-400 font-bold">NÃO contam para o ranking</span>.
+                      Use esta opção apenas para testar questões e simulados. Seu desempenho aqui não será registrado no ranking dos alunos.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Go to Student View */}
+              <div className="jarvis-card p-6">
+                <div className="text-center">
+                  <GraduationCap size={40} className="mx-auto text-cyan-500/30 mb-4" />
+                  <h4 className="text-sm text-white font-mono mb-2">Fazer Simulado</h4>
+                  <p className="text-xs text-gray-400 font-mono mb-6 max-w-md mx-auto">
+                    Para fazer simulados, acesse a visão do aluno. Seus resultados como professor serão marcados e excluídos do ranking automaticamente.
+                  </p>
+                  <Button
+                    onClick={() => { setPanel('student'); setCurrentView('simulado'); }}
+                    className="bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-sm h-11 px-8"
+                  >
+                    <GraduationCap size={16} className="mr-2" />
+                    Ir para Visão do Aluno
+                  </Button>
+                </div>
+              </div>
+
+              {/* Quick Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="jarvis-card p-4 text-center">
+                  <ClipboardList size={20} className="mx-auto text-cyan-400/60 mb-2" />
+                  <p className="text-xs text-gray-400 font-mono">Simulados Disponíveis</p>
+                  <p className="text-lg font-bold font-mono text-cyan-400">{classDashboard?.simuladoStats?.length || 0}</p>
+                </div>
+                <div className="jarvis-card p-4 text-center">
+                  <FileQuestion size={20} className="mx-auto text-green-400/60 mb-2" />
+                  <p className="text-xs text-gray-400 font-mono">Questões Ativas</p>
+                  <p className="text-lg font-bold font-mono text-green-400">{classDashboard?.overview?.activeQuestions || 0}</p>
+                </div>
+                <div className="jarvis-card p-4 text-center">
+                  <Users size={20} className="mx-auto text-purple-400/60 mb-2" />
+                  <p className="text-xs text-gray-400 font-mono">Alunos Ativos</p>
+                  <p className="text-lg font-bold font-mono text-purple-400">{classDashboard?.overview?.studentsCount || 0}</p>
+                </div>
+              </div>
+            </motion.div>
+          </TabsContent>
+
           {/* ======================== DASHBOARD ======================== */}
           <TabsContent value="dashboard">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
-              {/* Overview Stats */}
+              {/* Class Overview */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'Total Alunos', value: classDashboard?.overview?.studentsCount ?? 0, color: 'text-cyan-400', icon: <Users size={16} /> },
+                  { label: 'Média da Turma', value: `${classDashboard?.overview?.avgHitRate ?? 0}%`, color: 'text-emerald-400', icon: <TrendingUp size={16} /> },
+                  { label: 'Questões Ativas', value: classDashboard?.overview?.activeQuestions ?? 0, color: 'text-green-400', icon: <FileQuestion size={16} /> },
+                  { label: 'Total Respostas', value: classDashboard?.overview?.totalResponses ?? 0, color: 'text-purple-400', icon: <Activity size={16} /> },
+                ].map(stat => (
+                  <motion.div key={stat.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                    <div className="jarvis-card p-4 text-center">
+                      <div className="flex items-center justify-center mb-1 text-gray-500">{stat.icon}</div>
+                      <p className={`text-2xl font-bold font-mono ${stat.color}`}>{stat.value}</p>
+                      <p className="text-[10px] text-gray-500 font-mono mt-1">{stat.label}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Top Performing Students */}
+              <div className="jarvis-card p-4">
+                <h4 className="text-sm font-mono text-cyan-400 tracking-wider mb-4 flex items-center gap-2">
+                  <UserCheck size={14} /> Alunos com Melhor Desempenho
+                </h4>
+                {classDashboard?.studentRanking && classDashboard.studentRanking.length > 0 ? (
+                  <div className="space-y-2">
+                    {classDashboard.studentRanking.slice(0, 5).map((student, idx) => (
+                      <div key={student.id} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-cyan-500/5 hover:border-cyan-500/10 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-mono font-bold ${
+                            idx === 0 ? 'text-yellow-400' :
+                            idx === 1 ? 'text-slate-300' :
+                            idx === 2 ? 'text-amber-600' :
+                            'text-gray-500'
+                          }`}>
+                            {idx + 1}º
+                          </span>
+                          <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+                            <span className="text-xs font-bold text-cyan-400">{student.name.charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-200 font-mono">{student.name}</p>
+                            <p className="text-[10px] text-gray-500 font-mono">{student.ra || ''} • {student.totalResponses} questões</p>
+                          </div>
+                        </div>
+                        <span className={`text-sm font-mono font-bold ${hitRateColor(student.hitRate)}`}>
+                          {student.hitRate}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Users size={32} className="mx-auto text-gray-600 mb-2" />
+                    <p className="text-xs text-gray-500 font-mono">Nenhum dado de aluno disponível</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Student Activity */}
+              <div className="jarvis-card p-4">
+                <h4 className="text-sm font-mono text-cyan-400 tracking-wider mb-4 flex items-center gap-2">
+                  <Activity size={14} /> Atividade Recente dos Alunos
+                </h4>
+                {classDashboard?.byMicroarea && classDashboard.byMicroarea.length > 0 ? (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {classDashboard.byMicroarea.slice(0, 8).map((ma, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 rounded bg-white/[0.02] border border-cyan-500/5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ma.color || '#06b6d4' }} />
+                          <span className="text-xs text-gray-300 font-mono truncate">{ma.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] text-gray-500 font-mono">{ma.total} resp.</span>
+                          <span className={`text-xs font-mono font-bold ${hitRateColor(ma.hitRate)}`}>{ma.hitRate}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Activity size={32} className="mx-auto text-gray-600 mb-2" />
+                    <p className="text-xs text-gray-500 font-mono">Nenhuma atividade registrada ainda</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Question Stats (existing) */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="jarvis-card p-4 text-center">
                   <p className="text-2xl font-bold font-mono text-cyan-400">{stats.total}</p>
@@ -1051,7 +1677,7 @@ export function ProfessorPanel() {
                 </div>
               </div>
 
-              {/* Charts */}
+              {/* Charts (existing) */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Questions over time */}
                 <div className="jarvis-card p-4">
@@ -1101,7 +1727,30 @@ export function ProfessorPanel() {
                 </div>
               </div>
 
-              {/* Status Distribution */}
+              {/* Class Performance by Microarea */}
+              {classDashboard?.byMicroarea && classDashboard.byMicroarea.length > 0 && (
+                <div className="jarvis-card p-4">
+                  <h4 className="text-sm font-mono text-cyan-400 tracking-wider mb-4 flex items-center gap-2">
+                    <BarChart3 size={14} /> Desempenho da Turma por Microárea
+                  </h4>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={classDashboard.byMicroarea.slice(0, 10).map(m => ({
+                        name: m.name.length > 12 ? m.name.substring(0, 12) + '...' : m.name,
+                        taxa: m.hitRate,
+                        respostas: m.total,
+                      }))}>
+                        <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 9, fontFamily: 'monospace' }} axisLine={{ stroke: '#1e293b' }} />
+                        <YAxis domain={[0, 100]} tick={{ fill: '#94a3b8', fontSize: 10, fontFamily: 'monospace' }} axisLine={{ stroke: '#1e293b' }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="taxa" name="Taxa de Acerto (%)" fill="#06b6d4" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Status Distribution (existing) */}
               <div className="jarvis-card p-4">
                 <h4 className="text-sm font-mono text-cyan-400 tracking-wider mb-4 flex items-center gap-2">
                   <Target size={14} /> Distribuição por Status

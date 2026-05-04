@@ -181,6 +181,11 @@ export function JarvisSidebar() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-slate-300 truncate">{user.name}</p>
+                  <p className="text-[9px] text-slate-500">
+                    {user.role === 'MASTER' && 'Gestor Master'}
+                    {user.role === 'PROFESSOR' && user.disciplina}
+                    {user.role === 'ALUNO' && [user.curso, user.periodo ? `${user.periodo}º período` : null].filter(Boolean).join(' • ')}
+                  </p>
                   <span
                     className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
                       user.role === 'MASTER'
@@ -203,7 +208,7 @@ export function JarvisSidebar() {
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all mb-1"
               >
                 <Shield size={14} />
-                <span>Painel Admin</span>
+                <span>{user?.role === 'MASTER' ? 'Painel Gestor' : 'Painel Professor'}</span>
               </button>
             )}
 

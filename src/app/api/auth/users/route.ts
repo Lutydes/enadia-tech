@@ -37,6 +37,10 @@ export async function GET(request: NextRequest) {
           ra: true,
           avatar: true,
           active: true,
+          curso: true,
+          periodo: true,
+          modalidade: true,
+          disciplina: true,
           lastLogin: true,
           createdAt: true,
         },
@@ -73,7 +77,7 @@ export async function POST(request: NextRequest) {
     requireRole(request, Role.MASTER);
 
     const body = await request.json();
-    const { email, name, password, role, ra } = body;
+    const { email, name, password, role, ra, curso, periodo, modalidade, disciplina } = body;
 
     if (!email || !name || !password) {
       return errorResponse('Email, nome e senha são obrigatórios.', 400);
@@ -92,13 +96,18 @@ export async function POST(request: NextRequest) {
     }
 
     const hashedPassword = await hashPassword(password);
+    const userRole = role || Role.ALUNO;
     const user = await db.user.create({
       data: {
         email,
         name,
         password: hashedPassword,
-        role: role || Role.ALUNO,
+        role: userRole,
         ra: ra || null,
+        curso: userRole === Role.ALUNO ? (curso || null) : null,
+        periodo: userRole === Role.ALUNO ? (periodo ? parseInt(String(periodo)) : null) : null,
+        modalidade: userRole === Role.ALUNO ? (modalidade || 'PRESENCIAL') : null,
+        disciplina: userRole === Role.PROFESSOR ? (disciplina || null) : null,
       },
       select: {
         id: true,
@@ -108,6 +117,10 @@ export async function POST(request: NextRequest) {
         ra: true,
         avatar: true,
         active: true,
+        curso: true,
+        periodo: true,
+        modalidade: true,
+        disciplina: true,
         createdAt: true,
       },
     });

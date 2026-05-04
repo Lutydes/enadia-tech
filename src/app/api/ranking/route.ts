@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
             email: true,
             ra: true,
             role: true,
+            curso: true,
+            modalidade: true,
+            periodo: true,
           },
         },
       },
@@ -29,6 +32,9 @@ export async function GET(request: NextRequest) {
       email: string;
       ra: string | null;
       role: string;
+      curso: string | null;
+      modalidade: string | null;
+      periodo: number | null;
       totalAnswered: number;
       totalCorrect: number;
       totalResponseTime: number;
@@ -42,6 +48,9 @@ export async function GET(request: NextRequest) {
         email: r.user.email,
         ra: r.user.ra,
         role: r.user.role,
+        curso: r.user.curso,
+        modalidade: r.user.modalidade,
+        periodo: r.user.periodo,
         totalAnswered: 0,
         totalCorrect: 0,
         totalResponseTime: 0,
@@ -61,7 +70,7 @@ export async function GET(request: NextRequest) {
     // Also include users with no responses yet
     const allUsers = await db.user.findMany({
       where: { active: true },
-      select: { id: true, name: true, email: true, ra: true, role: true },
+      select: { id: true, name: true, email: true, ra: true, role: true, curso: true, modalidade: true, periodo: true },
     });
 
     for (const u of allUsers) {
@@ -72,6 +81,9 @@ export async function GET(request: NextRequest) {
           email: u.email,
           ra: u.ra,
           role: u.role,
+          curso: u.curso,
+          modalidade: u.modalidade,
+          periodo: u.periodo,
           totalAnswered: 0,
           totalCorrect: 0,
           totalResponseTime: 0,
@@ -82,13 +94,16 @@ export async function GET(request: NextRequest) {
 
     // Convert to array and calculate derived stats
     const ranking = Array.from(userStats.values())
-      .filter(u => u.role === 'ALUNO' || u.role === 'PROFESSOR')
+      .filter(u => u.role === 'ALUNO')
       .map(u => ({
         userId: u.userId,
         name: u.name,
         email: u.email,
         ra: u.ra,
         role: u.role,
+        curso: u.curso,
+        modalidade: u.modalidade,
+        periodo: u.periodo,
         totalAnswered: u.totalAnswered,
         totalCorrect: u.totalCorrect,
         hitRate: u.totalAnswered > 0 ? Math.round((u.totalCorrect / u.totalAnswered) * 100) : 0,
