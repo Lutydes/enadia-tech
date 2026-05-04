@@ -10,10 +10,8 @@ import {
   Trophy,
   Menu,
   X,
-  Lock,
   Shield,
   LogOut,
-  User,
 } from 'lucide-react';
 import { useAppStore, ViewType } from '@/store/app-store';
 import { EnadIAOrb } from './EnadIAOrb';
@@ -23,25 +21,23 @@ interface NavItem {
   view: ViewType;
   label: string;
   icon: React.ReactNode;
-  requiredPhase: number | null; // null = always available
 }
 
+// All nav items always available – no phase lock
 const navItems: NavItem[] = [
-  { view: 'chat', label: 'Chat EnadIA', icon: <MessageSquare size={18} />, requiredPhase: 1 },
-  { view: 'simulado', label: 'Simulado ENADE', icon: <FileQuestion size={18} />, requiredPhase: 1 },
-  { view: 'revisao', label: 'Revisão por Tema', icon: <BookOpen size={18} />, requiredPhase: 1 },
-  { view: 'dashboard', label: 'Dashboard', icon: <BarChart3 size={18} />, requiredPhase: 2 },
-  { view: 'dicas', label: 'Dicas', icon: <Lightbulb size={18} />, requiredPhase: 2 },
-  { view: 'ranking', label: 'Ranking', icon: <Trophy size={18} />, requiredPhase: 2 },
+  { view: 'chat', label: 'Chat EnadIA', icon: <MessageSquare size={18} /> },
+  { view: 'simulado', label: 'Simulado ENADE', icon: <FileQuestion size={18} /> },
+  { view: 'revisao', label: 'Revisão por Tema', icon: <BookOpen size={18} /> },
+  { view: 'dashboard', label: 'Dashboard', icon: <BarChart3 size={18} /> },
+  { view: 'dicas', label: 'Dicas', icon: <Lightbulb size={18} /> },
+  { view: 'ranking', label: 'Ranking', icon: <Trophy size={18} /> },
 ];
 
 export function JarvisSidebar() {
   const { currentView, setCurrentView, sidebarOpen, toggleSidebar, setSidebarOpen, user, logout, setPanel } = useAppStore();
-  const { currentPhase, loading: phaseLoading, isViewEnabled, getMinPhaseForView } = usePhaseAccess();
+  const { currentPhase, loading: phaseLoading } = usePhaseAccess();
 
-  const handleNavClick = (view: ViewType, requiredPhase: number | null) => {
-    // Check if view is enabled by phase
-    if (requiredPhase && !isViewEnabled(view)) return;
+  const handleNavClick = (view: ViewType) => {
     setCurrentView(view);
     if (window.innerWidth < 768) {
       setSidebarOpen(false);
@@ -122,41 +118,29 @@ export function JarvisSidebar() {
           {/* Divider */}
           <div className="mx-4 h-px bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent" />
 
-          {/* B. Navigation with lock icons */}
+          {/* B. Navigation – all items always unlocked */}
           <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
             {navItems.map((item) => {
               const isActive = currentView === item.view;
-              const isEnabled = item.requiredPhase === null || isViewEnabled(item.view);
-              const minPhase = getMinPhaseForView(item.view);
 
               return (
                 <motion.button
                   key={item.view}
-                  onClick={() => handleNavClick(item.view, item.requiredPhase)}
-                  whileHover={isEnabled ? { x: 4 } : {}}
-                  whileTap={isEnabled ? { scale: 0.98 } : {}}
-                  disabled={!isEnabled}
+                  onClick={() => handleNavClick(item.view)}
+                  whileHover={{ x: 4 }}
+                  whileTap={{ scale: 0.98 }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    !isEnabled
-                      ? 'text-slate-600 opacity-50 cursor-not-allowed'
-                      : isActive
-                        ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_15px_rgba(0,240,255,0.1)]'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
+                    isActive
+                      ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_15px_rgba(0,240,255,0.1)]'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
                   }`}
-                  title={
-                    !isEnabled && minPhase
-                      ? `Disponível na Fase ${minPhase}: ${PHASE_NAMES[minPhase]}`
-                      : item.label
-                  }
+                  title={item.label}
                 >
                   <span className={isActive ? 'text-cyan-400' : ''}>
-                    {!isEnabled ? <Lock size={18} className="text-slate-600" /> : item.icon}
+                    {item.icon}
                   </span>
                   <span className="flex-1 text-left">{item.label}</span>
-                  {!isEnabled && minPhase && (
-                    <span className="text-[9px] text-slate-600 font-mono">F{minPhase}</span>
-                  )}
-                  {isActive && isEnabled && (
+                  {isActive && (
                     <motion.div
                       layoutId="activeIndicator"
                       className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"

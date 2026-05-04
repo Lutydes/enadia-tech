@@ -16,7 +16,6 @@ import {
   Timer,
   BookmarkCheck,
   AlertTriangle,
-  Lock,
   Zap,
   FileText,
   Send,
@@ -33,7 +32,7 @@ import {
   getQuestionCountByMicroarea,
   getRandomFullQuestions,
 } from '@/lib/enade-full-bank';
-import { usePhaseAccess, PHASE_COLORS, PHASE_NAMES } from '@/hooks/usePhaseAccess';
+import { usePhaseAccess, PHASE_COLORS } from '@/hooks/usePhaseAccess';
 
 type SimuladoMode = 'diagnostico' | 'microarea' | 'enade_completo' | 'cronometrado';
 
@@ -47,6 +46,7 @@ interface SimuladoTypeOption {
   timeLimit: number | null; // minutes, null = no limit
 }
 
+// All simulado types always available – no phase lock
 const SIMULADO_TYPES: SimuladoTypeOption[] = [
   {
     id: 'diagnostico',
@@ -62,7 +62,7 @@ const SIMULADO_TYPES: SimuladoTypeOption[] = [
     label: 'Simulado por Microárea',
     description: 'Escolha uma microárea específica para praticar',
     icon: <BookOpen size={18} />,
-    minPhase: 2,
+    minPhase: 1,
     questionCount: 10,
     timeLimit: null,
   },
@@ -71,7 +71,7 @@ const SIMULADO_TYPES: SimuladoTypeOption[] = [
     label: 'Simulado ENADE Completo',
     description: '35 questões, limite de 3 horas',
     icon: <Timer size={18} />,
-    minPhase: 3,
+    minPhase: 1,
     questionCount: 35,
     timeLimit: 180,
   },
@@ -80,7 +80,7 @@ const SIMULADO_TYPES: SimuladoTypeOption[] = [
     label: 'Simulado Cronometrado',
     description: 'Questões com cronômetro, tempo limitado',
     icon: <Clock size={18} />,
-    minPhase: 4,
+    minPhase: 1,
     questionCount: 20,
     timeLimit: 90,
   },
@@ -174,7 +174,7 @@ export function SimuladoEnade() {
     token,
   } = useAppStore();
 
-  const { hasFeature, currentPhase, getMinPhaseForFeature } = usePhaseAccess();
+  const { currentPhase } = usePhaseAccess();
 
   const [localTopic, setLocalTopic] = useState(selectedTopic);
   const [localDifficulty, setLocalDifficulty] = useState(selectedDifficulty);
@@ -358,10 +358,8 @@ export function SimuladoEnade() {
     setCurrentView('chat');
   };
 
-  const isModeAvailable = (mode: SimuladoTypeOption) => {
-    if (!currentPhase) return true;
-    return currentPhase.phase >= mode.minPhase;
-  };
+  // All modes always available – phase restrictions removed
+  const isModeAvailable = (_mode: SimuladoTypeOption) => true;
 
   const answeredCount = Object.keys(quizAnswers).length;
   const markedCount = markedForReview.size;
@@ -470,60 +468,46 @@ export function SimuladoEnade() {
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {SIMULADO_TYPES.map((mode) => {
-                  const available = isModeAvailable(mode);
                   const isSelected = selectedMode === mode.id;
                   return (
                     <motion.button
                       key={mode.id}
-                      onClick={() => available && setSelectedMode(mode.id)}
-                      whileHover={available ? { scale: 1.02 } : {}}
-                      whileTap={available ? { scale: 0.98 } : {}}
-                      disabled={!available}
+                      onClick={() => setSelectedMode(mode.id)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       className={`relative p-4 rounded-xl border text-left transition-all ${
-                        !available
-                          ? 'bg-slate-800/30 border-slate-700/30 opacity-50 cursor-not-allowed'
-                          : isSelected
-                            ? 'bg-cyan-500/10 border-cyan-500/30 shadow-[0_0_15px_rgba(0,240,255,0.1)]'
-                            : 'bg-white/5 border-[#1e293b] hover:border-cyan-500/20 hover:bg-white/[0.08]'
+                        isSelected
+                          ? 'bg-cyan-500/10 border-cyan-500/30 shadow-[0_0_15px_rgba(0,240,255,0.1)]'
+                          : 'bg-white/5 border-[#1e293b] hover:border-cyan-500/20 hover:bg-white/[0.08]'
                       }`}
                     >
-                      {!available && (
-                        <div className="absolute top-2 right-2">
-                          <Lock size={14} className="text-slate-600" />
-                        </div>
-                      )}
                       <div className="flex items-center gap-3 mb-2">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                          available ? 'bg-cyan-500/10 text-cyan-400' : 'bg-slate-700/50 text-slate-600'
-                        }`}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-cyan-500/10 text-cyan-400">
                           {mode.icon}
                         </div>
                         <div>
-                          <p className={`text-sm font-semibold ${available ? 'text-slate-200' : 'text-slate-500'}`}>
+                          <p className="text-sm font-semibold text-slate-200">
                             {mode.label}
                           </p>
-                          <p className={`text-[10px] ${available ? 'text-slate-400' : 'text-slate-600'}`}>
-                            {available ? mode.description : `Disponível na Fase ${mode.minPhase}: ${PHASE_NAMES[mode.minPhase]}`}
+                          <p className="text-[10px] text-slate-400">
+                            {mode.description}
                           </p>
                         </div>
                       </div>
-                      {available && (
-                        <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                      <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                        <span className="flex items-center gap-1">
+                          <Hash size={10} /> {mode.questionCount} questões
+                        </span>
+                        {mode.timeLimit ? (
                           <span className="flex items-center gap-1">
-                            <Hash size={10} /> {mode.questionCount} questões
+                            <Clock size={10} /> {mode.timeLimit} min
                           </span>
-                          {mode.timeLimit && (
-                            <span className="flex items-center gap-1">
-                              <Clock size={10} /> {mode.timeLimit} min
-                            </span>
-                          )}
-                          {!mode.timeLimit && (
-                            <span className="flex items-center gap-1">
-                              <Clock size={10} /> Sem limite
-                            </span>
-                          )}
-                        </div>
-                      )}
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <Clock size={10} /> Sem limite
+                          </span>
+                        )}
+                      </div>
                     </motion.button>
                   );
                 })}
