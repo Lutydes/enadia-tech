@@ -1,10 +1,17 @@
+// =============================================================================
+// EnadIA - Prisma Schema para Supabase (PostgreSQL)
+// Para migrar do SQLite para Supabase, substitua o conteúdo do schema.prisma
+// por este arquivo e configure a DATABASE_URL no .env
+// =============================================================================
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")  // Opcional, para migrations
 }
 
 // ─── ENUMS ───────────────────────────────────────────
