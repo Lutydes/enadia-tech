@@ -35,7 +35,7 @@ export default function Home() {
           <div className="inline-flex items-center justify-center mb-4">
             <div className="w-12 h-12 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin" />
           </div>
-          <p className="text-cyan-400/60 font-mono text-sm tracking-widest">INICIALIZANDO ENADIA...</p>
+          <p className="text-cyan-400/60 font-mono text-sm tracking-widest">INICIALIZANDO ENADIA TECH...</p>
         </div>
       </div>
     );

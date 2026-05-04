@@ -32,7 +32,6 @@ import {
   getQuestionCountByMicroarea,
   getRandomFullQuestions,
 } from '@/lib/enade-full-bank';
-import { usePhaseAccess, PHASE_COLORS } from '@/hooks/usePhaseAccess';
 
 type SimuladoMode = 'diagnostico' | 'microarea' | 'enade_completo' | 'cronometrado';
 
@@ -173,8 +172,6 @@ export function SimuladoEnade() {
     setChatPreFilledQuestion,
     token,
   } = useAppStore();
-
-  const { currentPhase } = usePhaseAccess();
 
   const [localTopic, setLocalTopic] = useState(selectedTopic);
   const [localDifficulty, setLocalDifficulty] = useState(selectedDifficulty);
@@ -698,9 +695,9 @@ export function SimuladoEnade() {
                   <span
                     className="text-xs px-3 py-1 rounded-full font-medium"
                     style={{
-                      backgroundColor: PHASE_COLORS[currentTypeConfig?.minPhase || 1] + '15',
-                      color: PHASE_COLORS[currentTypeConfig?.minPhase || 1],
-                      border: `1px solid ${PHASE_COLORS[currentTypeConfig?.minPhase || 1]}30`,
+                      backgroundColor: '#00f0ff' + '15',
+                      color: '#00f0ff',
+                      border: `1px solid ${'#00f0ff'}30`,
                     }}
                   >
                     {currentTypeConfig?.label}
@@ -1045,9 +1042,9 @@ export function SimuladoEnade() {
               <span
                 className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                 style={{
-                  backgroundColor: PHASE_COLORS[currentTypeConfig?.minPhase || 1] + '15',
-                  color: PHASE_COLORS[currentTypeConfig?.minPhase || 1],
-                  border: `1px solid ${PHASE_COLORS[currentTypeConfig?.minPhase || 1]}30`,
+                  backgroundColor: '#00f0ff' + '15',
+                  color: '#00f0ff',
+                  border: `1px solid ${'#00f0ff'}30`,
                 }}
               >
                 {currentTypeConfig?.label}

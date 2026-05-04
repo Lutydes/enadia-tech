@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
 import {
   Table,
   TableBody,
@@ -21,7 +21,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,7 +33,6 @@ import {
   FileQuestion,
   Layers,
   GraduationCap,
-  Calendar,
   Search,
   RefreshCw,
   Download,
@@ -50,7 +49,6 @@ import {
   ChevronDown,
   ChevronUp,
   Plus,
-  Play,
   Pause,
   Shield,
   Brain,
@@ -98,16 +96,6 @@ interface KPIData {
   microareaDificil: string;
 }
 
-interface PhaseData {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  isActive: boolean;
-  order: number;
-  features: string[];
-}
-
 interface UserData {
   id: string;
   name: string;
@@ -128,7 +116,9 @@ interface QuestionData {
   id: string;
   code: string;
   microarea: string;
+  microareaId?: string;
   element: string;
+  elementId?: string;
   difficulty: string;
   status: string;
   source: string;
@@ -269,10 +259,6 @@ export function MasterPanel() {
   const [statusChart, setStatusChart] = useState<Array<{ name: string; value: number; color: string }>>([]);
   const [recentActivity, setRecentActivity] = useState<Array<{ student: string; action: string; time: string; score?: number }>>([]);
 
-  // Phases data
-  const [phases, setPhases] = useState<PhaseData[]>([]);
-  const [editingPhase, setEditingPhase] = useState<PhaseData | null>(null);
-
   // Users data
   const [professors, setProfessors] = useState<UserData[]>([]);
   const [students, setStudents] = useState<UserData[]>([]);
@@ -338,10 +324,9 @@ export function MasterPanel() {
   // Load all data
   const loadDashboard = useCallback(async () => {
     try {
-      const [dashRes, microRes, phaseRes, usersRes, qRes] = await Promise.allSettled([
+      const [dashRes, microRes, usersRes, qRes] = await Promise.allSettled([
         fetch('/api/dashboard/collective', { headers: fetchHeaders() }),
         fetch('/api/microareas', { headers: fetchHeaders() }),
-        fetch('/api/phases', { headers: fetchHeaders() }),
         fetch('/api/auth/users', { headers: fetchHeaders() }),
         fetch('/api/questions?limit=20&page=1', { headers: fetchHeaders() }),
       ]);
@@ -369,11 +354,6 @@ export function MasterPanel() {
       if (microRes.status === 'fulfilled' && microRes.value.ok) {
         const m = await microRes.value.json();
         setMicroareas(Array.isArray(m) ? m : m.microareas || []);
-      }
-
-      if (phaseRes.status === 'fulfilled' && phaseRes.value.ok) {
-        const p = await phaseRes.value.json();
-        setPhases(Array.isArray(p) ? p : p.phases || []);
       }
 
       if (usersRes.status === 'fulfilled' && usersRes.value.ok) {
@@ -410,21 +390,6 @@ export function MasterPanel() {
       setElements([]);
     }
   }, [questionForm.microareaId, fetchHeaders]);
-
-  const handleTogglePhase = async (phaseId: string, isActive: boolean) => {
-    try {
-      const res = await fetch(`/api/phases/${phaseId}`, {
-        method: 'PUT',
-        headers: fetchHeaders(),
-        body: JSON.stringify({ isActive: !isActive }),
-      });
-      if (res.ok) {
-        setPhases(prev => prev.map(p => p.id === phaseId ? { ...p, isActive: !isActive } : p));
-      }
-    } catch (err) {
-      console.error('Error toggling phase:', err);
-    }
-  };
 
   const handleCreateProfessor = async () => {
     if (!newProfessor.name || !newProfessor.email || !newProfessor.password) return;
@@ -722,8 +687,8 @@ export function MasterPanel() {
     setEditingQuestion(q);
     setQuestionForm({
       type: q.type === 'DISSERTATIVA' ? 'Dissertativa' : 'Objetiva',
-      microareaId: '',
-      elementId: '',
+      microareaId: q.microareaId || '',
+      elementId: q.elementId || '',
       difficulty: q.difficulty,
       context: q.context || '',
       statement: q.statement || '',
@@ -856,7 +821,6 @@ export function MasterPanel() {
           <TabsList className="bg-white/5 border border-cyan-500/10 h-auto p-1 gap-1 flex-wrap">
             {[
               { value: 'dashboard', label: 'Dashboard Geral', icon: <BarChart3 size={14} /> },
-              { value: 'phases', label: 'Gestão de Fases', icon: <Calendar size={14} /> },
               { value: 'professors', label: 'Gestão de Docentes', icon: <GraduationCap size={14} /> },
               { value: 'students', label: 'Gestão de Alunos', icon: <Users size={14} /> },
               { value: 'questions', label: 'Banco de Questões', icon: <FileQuestion size={14} /> },
@@ -993,123 +957,6 @@ export function MasterPanel() {
                   </div>
                 </div>
               </div>
-            </motion.div>
-          </TabsContent>
-
-          {/* ======================== GESTÃO DE FASES ======================== */}
-          <TabsContent value="phases">
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
-              {/* Phase Timeline */}
-              <div className="jarvis-card p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-sm font-mono text-cyan-400 tracking-wider flex items-center gap-2">
-                    <Calendar size={14} /> Timeline de Fases
-                  </h3>
-                  <Button onClick={loadDashboard} variant="ghost" size="sm" className="text-cyan-400/60 hover:text-cyan-400">
-                    <RefreshCw size={14} />
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  {phases.map((phase, index) => (
-                    <motion.div
-                      key={phase.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="relative"
-                    >
-                      {/* Timeline connector */}
-                      {index < phases.length - 1 && (
-                        <div className="absolute left-5 top-16 bottom-0 w-px bg-cyan-500/15" />
-                      )}
-
-                      <div className={`jarvis-card p-5 ml-0 transition-all ${phase.isActive ? 'border-cyan-500/40 shadow-[0_0_20px_rgba(0,240,255,0.08)]' : ''}`}>
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-start gap-4">
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${phase.isActive ? 'bg-cyan-500/20' : 'bg-white/5'}`}>
-                              {phase.isActive ? <Play size={16} className="text-cyan-400" /> : <Pause size={16} className="text-gray-500" />}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="text-sm font-bold text-white font-mono">Fase {phase.order}: {phase.name}</h4>
-                                <Badge className={`text-[10px] font-mono ${phase.isActive ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`}>
-                                  {phase.isActive ? 'ATIVA' : 'INATIVA'}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-gray-400 font-mono mb-2">
-                                {new Date(phase.startDate).toLocaleDateString('pt-BR')} — {new Date(phase.endDate).toLocaleDateString('pt-BR')}
-                              </p>
-                              <div className="flex flex-wrap gap-1">
-                                {phase.features?.map((f, fi) => (
-                                  <span key={fi} className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/5 text-cyan-400/70 font-mono border border-cyan-500/10">
-                                    {f}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setEditingPhase(phase)}
-                              className="text-cyan-400/60 hover:text-cyan-400 hover:bg-cyan-500/10"
-                            >
-                              <Edit size={14} />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleTogglePhase(phase.id, phase.isActive)}
-                              className={phase.isActive ? 'text-red-400/60 hover:text-red-400 hover:bg-red-500/10' : 'text-green-400/60 hover:text-green-400 hover:bg-green-500/10'}
-                            >
-                              {phase.isActive ? <Pause size={14} /> : <Play size={14} />}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Edit Phase Dialog */}
-              <Dialog open={!!editingPhase} onOpenChange={() => setEditingPhase(null)}>
-                <DialogContent className="bg-[#0d1321] border-cyan-500/20">
-                  <DialogHeader>
-                    <DialogTitle className="text-cyan-400 font-mono">Editar Fase</DialogTitle>
-                  </DialogHeader>
-                  {editingPhase && (
-                    <div className="space-y-4">
-                      <div>
-                        <Label className="text-xs font-mono text-gray-400">Nome da Fase</Label>
-                        <Input value={editingPhase.name} onChange={e => setEditingPhase({ ...editingPhase, name: e.target.value })} className="mt-1 bg-[#0a0e17] border-cyan-500/20 text-white font-mono text-sm" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs font-mono text-gray-400">Data Início</Label>
-                          <Input type="date" value={editingPhase.startDate} onChange={e => setEditingPhase({ ...editingPhase, startDate: e.target.value })} className="mt-1 bg-[#0a0e17] border-cyan-500/20 text-white font-mono text-sm" />
-                        </div>
-                        <div>
-                          <Label className="text-xs font-mono text-gray-400">Data Fim</Label>
-                          <Input type="date" value={editingPhase.endDate} onChange={e => setEditingPhase({ ...editingPhase, endDate: e.target.value })} className="mt-1 bg-[#0a0e17] border-cyan-500/20 text-white font-mono text-sm" />
-                        </div>
-                      </div>
-                      <Button onClick={async () => {
-                        try {
-                          await fetch(`/api/phases/${editingPhase.id}`, { method: 'PUT', headers: fetchHeaders(), body: JSON.stringify(editingPhase) });
-                          setEditingPhase(null);
-                          loadDashboard();
-                        } catch (err) { console.error(err); }
-                      }} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-mono">
-                        Salvar Alterações
-                      </Button>
-                    </div>
-                  )}
-                </DialogContent>
-              </Dialog>
             </motion.div>
           </TabsContent>
 

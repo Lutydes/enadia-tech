@@ -275,7 +275,7 @@ export function LoginForm() {
               transition={{ delay: 0.3, duration: 0.5 }}
               className="text-sm text-slate-400 font-mono tracking-wider"
             >
-              Sistema de Preparação ENADE — UNIFECAF
+              EnadIA TECH — Preparação ENADE
             </motion.p>
           </div>
 
@@ -813,7 +813,7 @@ export function LoginForm() {
             className="mt-8 pt-6 border-t border-cyan-500/10 text-center"
           >
             <p className="text-[11px] text-slate-600 font-mono">
-              Acesso restrito — UNIFECAF • ENADE 2025
+              EnadIA TECH — ENADE 2025
             </p>
           </motion.div>
         </div>

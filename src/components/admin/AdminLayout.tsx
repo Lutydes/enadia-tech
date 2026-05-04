@@ -38,7 +38,7 @@ export function AdminLayout({ panelType, children }: AdminLayoutProps) {
         <div className="flex items-center gap-3">
           <EnadIAOrb size="sm" />
           <div className="flex items-center gap-2">
-            <span className="text-lg font-bold jarvis-glow tracking-[0.2em] font-mono">EnadIA</span>
+            <span className="text-lg font-bold jarvis-glow tracking-[0.2em] font-mono">EnadIA <span className="text-[10px] text-cyan-400/70">TECH</span></span>
             <div className="hidden sm:block w-px h-5 bg-cyan-500/20" />
             <span className="hidden sm:flex items-center gap-1.5 text-sm text-cyan-400/80 font-mono">
               <PanelIcon size={14} />

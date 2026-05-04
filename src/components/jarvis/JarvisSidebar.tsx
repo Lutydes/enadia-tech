@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { useAppStore, ViewType } from '@/store/app-store';
 import { EnadIAOrb } from './EnadIAOrb';
-import { usePhaseAccess, PHASE_COLORS, PHASE_NAMES } from '@/hooks/usePhaseAccess';
 
 interface NavItem {
   view: ViewType;
@@ -35,7 +34,6 @@ const navItems: NavItem[] = [
 
 export function JarvisSidebar() {
   const { currentView, setCurrentView, sidebarOpen, toggleSidebar, setSidebarOpen, user, logout, setPanel } = useAppStore();
-  const { currentPhase, loading: phaseLoading } = usePhaseAccess();
 
   const handleNavClick = (view: ViewType) => {
     setCurrentView(view);
@@ -89,28 +87,24 @@ export function JarvisSidebar() {
             </div>
           </div>
 
-          {/* A. Phase Badge */}
+          {/* TECH Badge */}
           <div className="px-4 mb-2">
             <div
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-center justify-center"
               style={{
-                backgroundColor: `${PHASE_COLORS[currentPhase?.phase || 1]}10`,
-                border: `1px solid ${PHASE_COLORS[currentPhase?.phase || 1]}20`,
+                backgroundColor: '#00f0ff10',
+                border: '1px solid #00f0ff20',
               }}
             >
               <div
                 className="w-2 h-2 rounded-full animate-pulse flex-shrink-0"
-                style={{ backgroundColor: PHASE_COLORS[currentPhase?.phase || 1] }}
+                style={{ backgroundColor: '#00f0ff' }}
               />
               <span
                 className="text-[10px] font-bold uppercase tracking-wider"
-                style={{ color: PHASE_COLORS[currentPhase?.phase || 1] }}
+                style={{ color: '#00f0ff' }}
               >
-                {phaseLoading
-                  ? 'Carregando fase...'
-                  : currentPhase
-                    ? `Fase ${currentPhase.phase}: ${PHASE_NAMES[currentPhase.phase]}`
-                    : 'Fase 1: Diagnóstico'}
+                EnadIA TECH
               </span>
             </div>
           </div>

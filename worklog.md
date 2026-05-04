@@ -155,3 +155,41 @@ Stage Summary:
 - Complete Supabase SQL schema at /supabase-schema.sql
 - RLS policies enforce role-based access at database level
 - Views support ranking and reporting queries
+
+---
+Task ID: 12
+Agent: main
+Task: Remove phase system references and rebrand to "ENADIA TECH"
+
+Work Log:
+- Simplified usePhaseAccess.ts to export stubs only — all features always unlocked, PHASE_COLORS only has cyan (#00f0ff), PHASE_NAMES only has 'TECH'
+- Removed usePhaseAccess import and usage from JarvisSidebar.tsx; replaced Phase Badge with static "EnadIA TECH" cyan badge
+- Removed usePhaseAccess/PHASE_COLORS import from SimuladoEnade.tsx; replaced all PHASE_COLORS references with '#00f0ff' (cyan)
+- Updated LoginForm.tsx subtitle: "EnadIA TECH — Preparação ENADE" and footer: "EnadIA TECH — ENADE 2025"
+- Updated AdminLayout.tsx header: "EnadIA" → "EnadIA TECH" with cyan sub-text
+- Updated page.tsx loading text: "INICIALIZANDO ENADIA TECH..."
+- ESLint passed on all 6 modified files with zero errors
+- Dev server running without errors
+
+Stage Summary:
+- Phase/gating system fully removed; users navigate freely
+- All branding updated to "EnadIA TECH"
+- Backward-compatible stubs in usePhaseAccess.ts ensure Dashboard.tsx and RevisaoTemas.tsx continue working
+
+---
+Task ID: 2 (current)
+Agent: full-stack-developer
+Task: Fix Master panel editing and Professor panel access issues
+
+Work Log:
+- **Problem 1 — Master panel "Gestão de Fases" tab**: Removed the entire phases tab, its tab entry, the `<TabsContent value="phases">` section (~115 lines), `handleTogglePhase` function, `PhaseData` interface, `phases`/`editingPhase` state, and `fetch('/api/phases')` call from `loadDashboard`. Removed unused imports (`Calendar`, `Play`, `Card`/`CardContent`/`CardHeader`/`CardTitle`, `DialogTrigger`).
+- **Problem 2 — Professor panel `/api/dashboard/collective` access**: Verified the route already allows `Role.PROFESSOR` alongside `Role.MASTER` (line 8: `requireRole(request, Role.MASTER, Role.PROFESSOR)`). No changes needed.
+- **Problem 3 — Question editing in Master panel**: Fixed critical bug where `openEditQuestion` set `microareaId: ''` and `elementId: ''` instead of using the actual values from the question. Added `microareaId` and `elementId` optional fields to `QuestionData` interface. Verified PUT `/api/questions/[id]` route already allows MASTER role (`requireRole(request, Role.PROFESSOR, Role.MASTER)`).
+- **Problem 4 — Professor can access student interface**: Verified the full flow works: AdminLayout's "Voltar ao Estudo" button calls `setPanel('student')`, page.tsx renders student view when `currentPanel !== 'master' && currentPanel !== 'professor'`, and JarvisSidebar has a "Painel Professor" button to return. No changes needed.
+- ESLint passed on all checked files with zero errors.
+
+Stage Summary:
+- Master panel cleaned up: "Gestão de Fases" tab fully removed, all dead code cleaned
+- Question editing bug fixed: microareaId and elementId now properly loaded when editing a question
+- Professor access to dashboard API confirmed working
+- Professor ↔ student view switching confirmed working
