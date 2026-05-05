@@ -187,7 +187,52 @@ const difficultyColors: Record<string, string> = {
   Fácil: 'text-green-400',
   'Médio': 'text-yellow-400',
   'Difícil': 'text-red-400',
+  fácil: 'text-green-400',
+  médio: 'text-yellow-400',
+  difícil: 'text-red-400',
 };
+
+// Helper: capitalize first letter for display
+const capitalizeFirst = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+// Helper: map API question to internal QuestionData format
+// API returns: microarea as {id, name, code, color}, element as {id, name, code},
+// alternatives as [{id, letter, text}], difficulty as lowercase ("médio"), correctAnswer as letter
+function mapQuestionFromAPI(q: Record<string, unknown>): QuestionData {
+  const microareaObj = q.microarea as Record<string, string> | null | undefined;
+  const elementObj = q.element as Record<string, string> | null | undefined;
+  const correctAnswer = (q.correctAnswer as string) || '';
+  const rawAlts = q.alternatives as Array<Record<string, string>> | null | undefined;
+  return {
+    id: q.id as string,
+    code: q.code as string,
+    microarea: microareaObj?.name || '',
+    microareaId: microareaObj?.id || (q.microareaId as string) || '',
+    element: elementObj?.name || '',
+    elementId: elementObj?.id || (q.elementId as string) || '',
+    difficulty: (q.difficulty as string) || 'médio',
+    status: q.status as string,
+    source: q.source as string,
+    triA: q.triA as number | undefined,
+    triB: q.triB as number | undefined,
+    triC: q.triC as number | undefined,
+    statement: q.statement as string | undefined,
+    context: q.context as string | undefined,
+    alternatives: rawAlts && rawAlts.length > 0
+      ? rawAlts.map(a => ({
+          key: (a.letter as string) || 'A',
+          text: a.text as string,
+          isCorrect: (a.letter as string) === correctAnswer,
+        }))
+      : undefined,
+    tags: q.tags as string[] | undefined,
+    year: (q.sourceYear as number | undefined) ?? (q.year as number | undefined),
+    createdAt: q.createdAt as string | undefined,
+    createdBy: q.createdBy as string | undefined,
+    type: q.type as string | undefined,
+    explanation: q.explanation as string | undefined,
+  };
+}
 
 const emptyAlternatives = () => [
   { key: 'A', text: '', isCorrect: false },
@@ -385,7 +430,8 @@ export function MasterPanel() {
 
       if (qRes.status === 'fulfilled' && qRes.value.ok) {
         const q = await qRes.value.json();
-        setQuestions(q.questions || q.data || []);
+        const rawQuestions = q.questions || q.data || [];
+        setQuestions(rawQuestions.map((item: Record<string, unknown>) => mapQuestionFromAPI(item)));
         setQuestionTotal(q.total || q.pagination?.total || 0);
       }
     } catch (err) {
@@ -569,8 +615,10 @@ export function MasterPanel() {
 
   const openEditQuestion = (q: QuestionData) => {
     setEditingQuestion(q);
+    // Normalize difficulty to capitalized form for the form dropdown
+    const diffNormalized = q.difficulty?.toLowerCase() === 'fácil' ? 'Fácil' : q.difficulty?.toLowerCase() === 'difícil' ? 'Difícil' : 'Médio';
     setQuestionForm({
-      type: q.type === 'DISSERTATIVA' ? 'Dissertativa' : 'Objetiva', microareaId: q.microareaId || '', elementId: q.elementId || '', difficulty: q.difficulty,
+      type: q.type === 'DISSERTATIVA' ? 'Dissertativa' : 'Objetiva', microareaId: q.microareaId || '', elementId: q.elementId || '', difficulty: diffNormalized,
       context: q.context || '', statement: q.statement || '',
       alternatives: q.alternatives && q.alternatives.length > 0 ? q.alternatives.map(a => ({ key: a.key, text: a.text, isCorrect: a.isCorrect })) : emptyAlternatives(),
       explanation: q.explanation || '', tags: q.tags?.join(', ') || '', source: q.source || 'elaborada', year: q.year || new Date().getFullYear(),
@@ -655,8 +703,8 @@ export function MasterPanel() {
   const filteredProfessors = profSearch ? professors.filter(p => p.name.toLowerCase().includes(profSearch.toLowerCase()) || (p.ra && p.ra.includes(profSearch))) : professors;
   const filteredQuestions = questions.filter(q => {
     if (questionFilter.status && q.status !== questionFilter.status) return false;
-    if (questionFilter.difficulty && q.difficulty !== questionFilter.difficulty) return false;
-    if (questionFilter.microarea && q.microarea !== questionFilter.microarea) return false;
+    if (questionFilter.difficulty && q.difficulty?.toLowerCase() !== questionFilter.difficulty.toLowerCase()) return false;
+    if (questionFilter.microarea && q.microareaId !== questionFilter.microarea && q.microarea !== questionFilter.microarea) return false;
     if (questionFilter.source && q.source !== questionFilter.source) return false;
     return true;
   });
@@ -896,7 +944,7 @@ export function MasterPanel() {
               <div className="jarvis-card p-4">
                 <div className="flex flex-wrap gap-3 items-center">
                   <select value={questionFilter.status} onChange={e => setQuestionFilter(f => ({ ...f, status: e.target.value }))} className="bg-[#0a0e17] border border-cyan-500/20 text-gray-300 text-xs font-mono rounded-lg px-3 py-2 focus:border-cyan-500/40 outline-none"><option value="">Todos Status</option>{Object.entries(statusLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-                  <select value={questionFilter.difficulty} onChange={e => setQuestionFilter(f => ({ ...f, difficulty: e.target.value }))} className="bg-[#0a0e17] border border-cyan-500/20 text-gray-300 text-xs font-mono rounded-lg px-3 py-2 focus:border-cyan-500/40 outline-none"><option value="">Dificuldade</option><option value="Fácil">Fácil</option><option value="Médio">Médio</option><option value="Difícil">Difícil</option></select>
+                  <select value={questionFilter.difficulty} onChange={e => setQuestionFilter(f => ({ ...f, difficulty: e.target.value }))} className="bg-[#0a0e17] border border-cyan-500/20 text-gray-300 text-xs font-mono rounded-lg px-3 py-2 focus:border-cyan-500/40 outline-none"><option value="">Dificuldade</option><option value="fácil">Fácil</option><option value="médio">Médio</option><option value="difícil">Difícil</option></select>
                   <div className="ml-auto flex gap-2">
                     <Button onClick={() => { setShowBatchQuestionDialog(true); setBatchQuestionJson(''); setBatchQuestionResult(null); }} className="bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs"><Upload size={14} className="mr-1.5" /> Inserir em Lote</Button>
                     <Button onClick={() => { setEditingQuestion(null); setQuestionForm({ ...emptyQuestionForm, alternatives: emptyAlternatives() }); setShowQuestionFormDialog(true); }} className="bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs"><Plus size={14} className="mr-1.5" /> Criar Questão</Button>
@@ -916,7 +964,7 @@ export function MasterPanel() {
                         <TableCell className="text-xs text-cyan-400/80 font-mono">{q.code}</TableCell>
                         <TableCell className="text-xs text-gray-300 font-mono max-w-[150px] truncate">{q.microarea}</TableCell>
                         <TableCell><Badge variant="outline" className="text-[10px] font-mono border-cyan-500/20 text-cyan-400/70">{q.type === 'DISSERTATIVA' ? 'Diss.' : 'Obj.'}</Badge></TableCell>
-                        <TableCell className={`text-xs font-mono ${difficultyColors[q.difficulty] || 'text-gray-400'}`}>{q.difficulty}</TableCell>
+                        <TableCell className={`text-xs font-mono ${difficultyColors[q.difficulty] || 'text-gray-400'}`}>{capitalizeFirst(q.difficulty)}</TableCell>
                         <TableCell><Badge className={`text-[10px] font-mono ${statusColors[q.status] || 'bg-gray-500/20 text-gray-400'}`}>{statusLabels[q.status] || q.status}</Badge></TableCell>
                         <TableCell><div className="flex items-center justify-center gap-1">
                           {actionBtn(<Eye size={14} />, () => setViewingQuestion(q))}
@@ -962,8 +1010,8 @@ export function MasterPanel() {
               {/* View Question Dialog */}
               <Dialog open={!!viewingQuestion} onOpenChange={() => setViewingQuestion(null)}><DialogContent className="bg-[#0d1321] border-cyan-500/20 max-w-2xl max-h-[80vh] overflow-y-auto"><DialogHeader><DialogTitle className="text-cyan-400 font-mono flex items-center gap-2"><FileQuestion size={16} /> Questão {viewingQuestion?.code}</DialogTitle></DialogHeader>
                 {viewingQuestion && (<div className="space-y-4">
-                  <div className="flex flex-wrap gap-2"><Badge className={`text-[10px] font-mono ${statusColors[viewingQuestion.status]}`}>{statusLabels[viewingQuestion.status]}</Badge><Badge variant="outline" className="text-[10px] font-mono border-cyan-500/20 text-cyan-400/70">{viewingQuestion.difficulty}</Badge><Badge variant="outline" className="text-[10px] font-mono border-cyan-500/20 text-cyan-400/70">{viewingQuestion.type}</Badge></div>
-                  <div><p className="text-xs text-gray-500 font-mono mb-1">MICROÁREA / ELEMENTO</p><p className="text-sm text-white font-mono">{viewingQuestion.microarea} — {viewingQuestion.element}</p></div>
+                  <div className="flex flex-wrap gap-2"><Badge className={`text-[10px] font-mono ${statusColors[viewingQuestion.status]}`}>{statusLabels[viewingQuestion.status]}</Badge><Badge variant="outline" className="text-[10px] font-mono border-cyan-500/20 text-cyan-400/70">{capitalizeFirst(viewingQuestion.difficulty)}</Badge><Badge variant="outline" className="text-[10px] font-mono border-cyan-500/20 text-cyan-400/70">{viewingQuestion.type}</Badge></div>
+                  <div><p className="text-xs text-gray-500 font-mono mb-1">MICROÁREA / ELEMENTO</p><p className="text-sm text-white font-mono">{viewingQuestion.microarea}{viewingQuestion.element ? ` — ${viewingQuestion.element}` : ''}</p></div>
                   {viewingQuestion.context && <div><p className="text-xs text-gray-500 font-mono mb-1">CONTEXTO</p><p className="text-sm text-gray-300 font-mono whitespace-pre-wrap">{viewingQuestion.context}</p></div>}
                   <div><p className="text-xs text-gray-500 font-mono mb-1">ENUNCIADO</p><p className="text-sm text-gray-300 font-mono whitespace-pre-wrap">{viewingQuestion.statement}</p></div>
                   {viewingQuestion.alternatives && viewingQuestion.alternatives.length > 0 && <div><p className="text-xs text-gray-500 font-mono mb-2">ALTERNATIVAS</p><div className="space-y-1">{viewingQuestion.alternatives.map(alt => (<div key={alt.key} className={`text-xs font-mono p-2.5 rounded ${alt.isCorrect ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-white/[0.02] text-gray-400'}`}><span className="font-bold mr-2">{alt.key})</span> {alt.text}</div>))}</div></div>}

@@ -219,9 +219,57 @@ const statusLabels: Record<string, string> = {
 
 const difficultyColors: Record<string, string> = {
   Fácil: 'text-green-400',
-  Médio: 'text-yellow-400',
-  Difícil: 'text-red-400',
+  'Médio': 'text-yellow-400',
+  'Difícil': 'text-red-400',
+  fácil: 'text-green-400',
+  médio: 'text-yellow-400',
+  difícil: 'text-red-400',
 };
+
+// Helper: capitalize first letter for display
+const capitalizeFirst = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+// Helper: map API question to internal QuestionData format
+// API returns: microarea as {id, name, code, color}, element as {id, name, code},
+// alternatives as [{id, letter, text}], difficulty as lowercase ("médio"), correctAnswer as letter
+function mapQuestionFromAPI(q: Record<string, unknown>): QuestionData {
+  const microareaObj = q.microarea as Record<string, string> | null | undefined;
+  const elementObj = q.element as Record<string, string> | null | undefined;
+  const correctAnswer = (q.correctAnswer as string) || '';
+  const rawAlts = q.alternatives as Array<Record<string, string>> | null | undefined;
+  return {
+    id: q.id as string,
+    code: q.code as string,
+    microarea: microareaObj?.name || '',
+    microareaId: microareaObj?.id || (q.microareaId as string) || '',
+    element: elementObj?.name || '',
+    elementId: elementObj?.id || (q.elementId as string) || '',
+    difficulty: (q.difficulty as string) || 'médio',
+    status: q.status as string,
+    source: q.source as string,
+    triA: q.triA as number | undefined,
+    triB: q.triB as number | undefined,
+    triC: q.triC as number | undefined,
+    statement: q.statement as string | undefined,
+    context: q.context as string | undefined,
+    alternatives: rawAlts && rawAlts.length > 0
+      ? rawAlts.map(a => ({
+          key: (a.letter as string) || 'A',
+          text: a.text as string,
+          isCorrect: (a.letter as string) === correctAnswer,
+        }))
+      : undefined,
+    tags: q.tags as string[] | undefined,
+    year: (q.sourceYear as number | undefined) ?? (q.year as number | undefined),
+    type: q.type as string,
+    explanation: q.explanation as string | undefined,
+    createdAt: q.createdAt as string | undefined,
+    geminiFeedback: q.geminiFeedback as string | undefined,
+    geminiApproved: q.geminiApproved as boolean | undefined,
+    geminiScore: q.geminiScore as number | undefined,
+    geminiTriSuggestion: q.geminiTriSuggestion as { a: number; b: number; c: number } | undefined,
+  };
+}
 
 // === CUSTOM TOOLTIP ===
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) => {
@@ -316,8 +364,8 @@ export function ProfessorPanel() {
 
       if (qRes.status === 'fulfilled' && qRes.value.ok) {
         const q = await qRes.value.json();
-        const data = q.questions || q.data || [];
-        setAllQuestions(data);
+        const rawData = q.questions || q.data || [];
+        setAllQuestions(rawData.map((item: Record<string, unknown>) => mapQuestionFromAPI(item)));
       }
 
       if (microRes.status === 'fulfilled' && microRes.value.ok) {
@@ -408,7 +456,7 @@ export function ProfessorPanel() {
   // Filter questions
   const filteredQuestions = allQuestions.filter(q => {
     if (questionFilter.status && q.status !== questionFilter.status) return false;
-    if (questionFilter.difficulty && q.difficulty !== questionFilter.difficulty) return false;
+    if (questionFilter.difficulty && q.difficulty?.toLowerCase() !== questionFilter.difficulty.toLowerCase()) return false;
     if (questionFilter.microarea && q.microareaId !== questionFilter.microarea) return false;
     return true;
   });
@@ -460,14 +508,15 @@ export function ProfessorPanel() {
         type: form.type,
         microareaId: form.microareaId,
         elementId: form.elementId,
-        difficulty: form.difficulty,
+        difficulty: form.difficulty?.toLowerCase() || 'médio',
         context: form.context,
         statement: form.statement,
-        alternatives: form.type === 'Objetiva' ? form.alternatives : [],
+        alternatives: form.type === 'Objetiva' ? form.alternatives.map(a => ({ letter: a.key, text: a.text })) : [],
+        correctAnswer: form.type === 'Objetiva' ? form.alternatives.find(a => a.isCorrect)?.key || 'A' : 'DISSERTATIVA',
         explanation: form.explanation,
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
         source: form.source,
-        year: form.year,
+        sourceYear: form.year,
         status: 'RASCUNHO',
       };
 
@@ -496,14 +545,15 @@ export function ProfessorPanel() {
         type: form.type,
         microareaId: form.microareaId,
         elementId: form.elementId,
-        difficulty: form.difficulty,
+        difficulty: form.difficulty?.toLowerCase() || 'médio',
         context: form.context,
         statement: form.statement,
-        alternatives: form.type === 'Objetiva' ? form.alternatives : [],
+        alternatives: form.type === 'Objetiva' ? form.alternatives.map(a => ({ letter: a.key, text: a.text })) : [],
+        correctAnswer: form.type === 'Objetiva' ? form.alternatives.find(a => a.isCorrect)?.key || 'A' : 'DISSERTATIVA',
         explanation: form.explanation,
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
         source: form.source,
-        year: form.year,
+        sourceYear: form.year,
         status: 'AGUARDANDO_TESTE',
       };
 
@@ -673,9 +723,9 @@ export function ProfessorPanel() {
                   className="bg-[#0a0e17] border border-cyan-500/20 text-gray-300 text-xs font-mono rounded-lg px-3 py-2 focus:border-cyan-500/40 outline-none"
                 >
                   <option value="">Todas Dificuldades</option>
-                  <option value="Fácil">Fácil</option>
-                  <option value="Médio">Médio</option>
-                  <option value="Difícil">Difícil</option>
+                  <option value="fácil">Fácil</option>
+                  <option value="médio">Médio</option>
+                  <option value="difícil">Difícil</option>
                 </select>
                 <select
                   value={questionFilter.microarea}
@@ -712,7 +762,7 @@ export function ProfessorPanel() {
                         <TableRow key={q.id} className="border-b border-cyan-500/5 hover:bg-white/[0.02]">
                           <TableCell className="text-xs text-cyan-400/80 font-mono">{q.code}</TableCell>
                           <TableCell className="text-xs text-gray-300 font-mono max-w-[150px] truncate">{q.microarea}</TableCell>
-                          <TableCell className={`text-xs font-mono ${difficultyColors[q.difficulty] || 'text-gray-400'}`}>{q.difficulty}</TableCell>
+                          <TableCell className={`text-xs font-mono ${difficultyColors[q.difficulty] || 'text-gray-400'}`}>{capitalizeFirst(q.difficulty)}</TableCell>
                           <TableCell>
                             <Badge className={`text-[10px] font-mono ${statusColors[q.status] || 'bg-gray-500/20 text-gray-400'}`}>
                               {statusLabels[q.status] || q.status}
@@ -751,7 +801,7 @@ export function ProfessorPanel() {
                           {statusLabels[viewingQuestion.status]}
                         </Badge>
                         <Badge variant="outline" className="text-[10px] font-mono border-cyan-500/20 text-cyan-400/70">
-                          {viewingQuestion.difficulty}
+                          {capitalizeFirst(viewingQuestion.difficulty)}
                         </Badge>
                         <Badge variant="outline" className="text-[10px] font-mono border-cyan-500/20 text-cyan-400/70">
                           {viewingQuestion.type}
@@ -760,7 +810,7 @@ export function ProfessorPanel() {
 
                       <div>
                         <p className="text-xs text-gray-500 font-mono mb-1">MICROÁREA / ELEMENTO</p>
-                        <p className="text-sm text-white font-mono">{viewingQuestion.microarea} — {viewingQuestion.element}</p>
+                        <p className="text-sm text-white font-mono">{viewingQuestion.microarea}{viewingQuestion.element ? ` — ${viewingQuestion.element}` : ''}</p>
                       </div>
 
                       {viewingQuestion.context && (
@@ -1043,7 +1093,7 @@ export function ProfessorPanel() {
                               {statusLabels[q.status]}
                             </Badge>
                           </div>
-                          <p className="text-xs text-gray-400 font-mono">{q.microarea} • {q.difficulty}</p>
+                          <p className="text-xs text-gray-400 font-mono">{q.microarea} • {capitalizeFirst(q.difficulty)}</p>
                         </div>
                         <Badge variant="outline" className="text-[10px] font-mono border-cyan-500/20 text-cyan-400/70 flex-shrink-0">
                           {q.source}
@@ -1137,7 +1187,7 @@ export function ProfessorPanel() {
                               Aguardando Validação
                             </Badge>
                           </div>
-                          <p className="text-xs text-gray-400 font-mono">{q.microarea} • {q.element} • {q.difficulty}</p>
+                          <p className="text-xs text-gray-400 font-mono">{q.microarea}{q.element ? ` • ${q.element}` : ''} • {capitalizeFirst(q.difficulty)}</p>
                         </div>
                       </div>
 
