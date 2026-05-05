@@ -33,7 +33,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { useAppStore } from '@/store/app-store';
-import { usePhaseAccess, PHASE_COLORS, PHASE_NAMES } from '@/hooks/usePhaseAccess';
+// Phase system removed - all features unlocked
 
 interface DashboardStats {
   overview: {
@@ -118,7 +118,7 @@ function TriTooltip({ active, payload, label }: { active?: boolean; payload?: Ar
 
 export function Dashboard() {
   const { token, setCurrentView, totalAnswered, totalCorrect, topicStats, quizHistory } = useAppStore();
-  const { currentPhase, loading: phaseLoading, hasFeature } = usePhaseAccess();
+  // Phase system removed - all features unlocked
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -288,49 +288,29 @@ export function Dashboard() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-6xl mx-auto space-y-6">
-          {/* A. Phase Indicator Banner */}
-          {!phaseLoading && currentPhase && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="jarvis-card p-4"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-3 h-3 rounded-full animate-pulse"
-                    style={{ backgroundColor: PHASE_COLORS[currentPhase.phase] }}
-                  />
-                  <div>
-                    <span
-                      className="text-xs font-bold uppercase tracking-wider"
-                      style={{ color: PHASE_COLORS[currentPhase.phase] }}
-                    >
-                      Fase {currentPhase.phase}: {PHASE_NAMES[currentPhase.phase]}
-                    </span>
-                    <p className="text-[10px] text-slate-500 mt-0.5">
-                      Funcionalidades disponíveis: {currentPhase.features.length} recursos ativos
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4].map((p) => (
-                    <div
-                      key={p}
-                      className={`w-8 h-2 rounded-full transition-all ${
-                        p <= currentPhase.phase
-                          ? 'opacity-100'
-                          : 'bg-slate-700 opacity-30'
-                      }`}
-                      style={{
-                        backgroundColor: p <= currentPhase.phase ? PHASE_COLORS[p] : undefined,
-                      }}
-                    />
-                  ))}
+          {/* EnadIA TECH Banner */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="jarvis-card p-4"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full animate-pulse bg-[#00f0ff]" />
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#00f0ff]">
+                    EnadIA TECH
+                  </span>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    Todas as funcionalidades desbloqueadas
+                  </p>
                 </div>
               </div>
-            </motion.div>
-          )}
+              <div className="flex items-center gap-2">
+                <Zap size={14} className="text-[#00f0ff]" />
+              </div>
+            </div>
+          </motion.div>
 
           {/* Motivation banner */}
           <motion.div

@@ -144,18 +144,22 @@ export const useAppStore = create<AppState>()(
               headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
-              const user = await res.json();
+              const data = await res.json();
+              const user = data.user || data; // API returns { user: {...} }
               // Auto-set panel based on role
               const panel = user.role === 'MASTER' ? 'master' : user.role === 'PROFESSOR' ? 'professor' : 'student';
               set({ user, token, isLoading: false, currentPanel: panel });
             } else {
-              set({ isLoading: false });
+              // Token invalid or expired — clear it
+              localStorage.removeItem('enadia-token');
+              set({ user: null, token: null, isLoading: false, currentPanel: 'student' });
             }
           } catch {
-            set({ isLoading: false });
+            localStorage.removeItem('enadia-token');
+            set({ user: null, token: null, isLoading: false, currentPanel: 'student' });
           }
         } else {
-          set({ isLoading: false });
+          set({ isLoading: false, currentPanel: 'student' });
         }
       },
 
@@ -268,7 +272,7 @@ export const useAppStore = create<AppState>()(
         topicStats: state.topicStats,
         quizHistory: state.quizHistory,
         currentView: state.currentView,
-        currentPanel: state.currentPanel,
+        // currentPanel is NOT persisted — it's derived from user.role on session restore
       }),
     }
   )

@@ -10,7 +10,7 @@ import {
   type MicroareaInfo,
 } from '@/lib/enade-full-bank';
 import { useAppStore } from '@/store/app-store';
-import { usePhaseAccess } from '@/hooks/usePhaseAccess';
+// Phase system removed - all features unlocked
 
 interface ApiMicroarea {
   id: string;
@@ -92,7 +92,7 @@ export function RevisaoTemas() {
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const setChatPreFilledQuestion = useAppStore((s) => s.setChatPreFilledQuestion);
   const token = useAppStore((s) => s.token);
-  const { hasFeature } = usePhaseAccess();
+  // Phase system removed - all features unlocked
 
   // Fetch microareas from API
   useEffect(() => {
