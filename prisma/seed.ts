@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
 
 async function seed() {
-  console.log('🌱 Seeding database...');
+  console.log('🌱 Seeding database (Supabase/PostgreSQL)...');
 
   // Create master user
   const existingMaster = await db.user.findUnique({ where: { email: 'master@unifecaf.br' } });

@@ -1,3 +1,8 @@
+// =============================================================================
+// EnadIA TECH - Schema LOCAL (SQLite)
+// Para migrar para Supabase, substitua este arquivo pelo conteúdo de schema.supabase.prisma
+// =============================================================================
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -71,8 +76,8 @@ model User {
   updatedAt     DateTime     @updatedAt
 
   responses          StudentResponse[]
-  authoredQuestions   Question[] @relation("QuestionAuthor")
-  validatedQuestions Question[] @relation("QuestionValidator")
+  authoredQuestions   Question[]       @relation("QuestionAuthor")
+  validatedQuestions Question[]       @relation("QuestionValidator")
   essayAnswers       EssayAnswer[]
 }
 

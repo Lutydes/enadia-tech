@@ -1,7 +1,11 @@
 // =============================================================================
-// EnadIA - Prisma Schema para Supabase (PostgreSQL)
-// Para migrar do SQLite para Supabase, substitua o conteúdo do schema.prisma
-// por este arquivo e configure a DATABASE_URL no .env
+// EnadIA TECH - Prisma Schema para Supabase (PostgreSQL)
+// =============================================================================
+// QUANDO ESTIVER PRONTO PARA MIGRAR:
+// 1. Copie este arquivo para schema.prisma (substituindo o atual)
+// 2. Configure .env.local com as URLs do Supabase
+// 3. Execute: bunx prisma generate && bunx prisma db push
+// 4. Execute: bun run prisma/seed.ts && bun run prisma/seed-questions.ts
 // =============================================================================
 
 generator client {
@@ -11,7 +15,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")  // Opcional, para migrations
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── ENUMS ───────────────────────────────────────────
@@ -47,24 +51,40 @@ enum SimuladoType {
   ENADE_SIMULADO
 }
 
+enum Modalidade {
+  EAD
+  PRESENCIAL
+  SEMIPRESENCIAL
+}
+
 // ─── MODELS ──────────────────────────────────────────
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
+  id            String       @id @default(cuid())
+  email         String       @unique
   name          String
   password      String
-  role          Role     @default(ALUNO)
-  ra            String?  @unique
+  role          Role         @default(ALUNO)
+  ra            String?      @unique
   avatar        String?
-  active        Boolean  @default(true)
+  active        Boolean      @default(true)
   lastLogin     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+
+  // Student fields
+  curso         String?
+  periodo       Int?
+  modalidade    Modalidade?  @default(PRESENCIAL)
+
+  // Professor fields
+  disciplina    String?
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   responses          StudentResponse[]
-  authoredQuestions   Question[] @relation("QuestionAuthor")
-  validatedQuestions Question[] @relation("QuestionValidator")
+  authoredQuestions   Question[]       @relation("QuestionAuthor")
+  validatedQuestions Question[]       @relation("QuestionValidator")
+  essayAnswers       EssayAnswer[]
 }
 
 model Microarea {
@@ -127,6 +147,7 @@ model Question {
   responses       StudentResponse[]
   simuladoConfigs SimuladoConfig[]
   tags            QuestionTag[]
+  essayAnswers    EssayAnswer[]
 
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -180,24 +201,24 @@ model StudentResponse {
   createdAt     DateTime  @default(now())
 }
 
+model EssayAnswer {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  questionId    String
+  question      Question  @relation(fields: [questionId], references: [id])
+  simuladoId    String?
+  answer        String
+  aiFeedback    String?
+  aiScore       Float?
+  createdAt     DateTime  @default(now())
+}
+
 model QuestionTag {
   id         String   @id @default(cuid())
   name       String
   questionId String
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-}
-
-model PhaseConfig {
-  id          String   @id @default(cuid())
-  phase       Int      @unique
-  name        String
-  description String
-  startDate   DateTime?
-  endDate     DateTime?
-  features    String
-  active      Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 }
 
 model SystemConfig {
