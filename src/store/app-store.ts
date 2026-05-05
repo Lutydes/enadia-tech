@@ -145,7 +145,9 @@ export const useAppStore = create<AppState>()(
             });
             if (res.ok) {
               const user = await res.json();
-              set({ user, token, isLoading: false });
+              // Auto-set panel based on role
+              const panel = user.role === 'MASTER' ? 'master' : user.role === 'PROFESSOR' ? 'professor' : 'student';
+              set({ user, token, isLoading: false, currentPanel: panel });
             } else {
               set({ isLoading: false });
             }
@@ -266,6 +268,7 @@ export const useAppStore = create<AppState>()(
         topicStats: state.topicStats,
         quizHistory: state.quizHistory,
         currentView: state.currentView,
+        currentPanel: state.currentPanel,
       }),
     }
   )

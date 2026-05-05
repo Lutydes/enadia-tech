@@ -91,8 +91,14 @@ export async function POST(request: NextRequest) {
       tags,
     } = body;
 
-    if (!statement || !correctAnswer || !microareaId || !alternatives?.length) {
-      return errorResponse('Enunciado, resposta correta, microárea e alternativas são obrigatórios.', 400);
+    if (!statement || !microareaId) {
+      return errorResponse('Enunciado e microárea são obrigatórios.', 400);
+    }
+
+    // OBJETIVA questions require alternatives
+    const questionType = type || 'OBJETIVA';
+    if (questionType === 'OBJETIVA' && !alternatives?.length) {
+      return errorResponse('Alternativas são obrigatórias para questões objetivas.', 400);
     }
 
     // Generate unique code
@@ -102,7 +108,7 @@ export async function POST(request: NextRequest) {
     const question = await db.question.create({
       data: {
         code,
-        type: type || 'OBJETIVA',
+        type: questionType,
         statement,
         context: context || null,
         correctAnswer,
@@ -115,12 +121,14 @@ export async function POST(request: NextRequest) {
         sourceYear: sourceYear || null,
         enadeId: enadeId || null,
         status: 'RASCUNHO',
-        alternatives: {
-          create: alternatives.map((alt: { letter: string; text: string }) => ({
-            letter: alt.letter,
-            text: alt.text,
-          })),
-        },
+        alternatives: alternatives?.length
+          ? {
+              create: alternatives.map((alt: { letter: string; text: string }) => ({
+                letter: alt.letter,
+                text: alt.text,
+              })),
+            }
+          : undefined,
         tags: tags?.length
           ? {
               create: tags.map((name: string) => ({ name })),

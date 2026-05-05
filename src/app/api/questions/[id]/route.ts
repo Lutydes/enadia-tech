@@ -163,8 +163,8 @@ export async function DELETE(
       return errorResponse('Você só pode excluir suas próprias questões.', 403);
     }
 
-    // Only allow deletion of RASCUNHO or REPROVADA questions
-    if (!['RASCUNHO', 'REPROVADA'].includes(existing.status)) {
+    // Only PROFESSOR is restricted to RASCUNHO or REPROVADA; MASTER can delete any question
+    if (authUser.role !== Role.MASTER && !['RASCUNHO', 'REPROVADA'].includes(existing.status)) {
       return errorResponse('Apenas questões em rascunho ou reprovadas podem ser excluídas.', 400);
     }
 

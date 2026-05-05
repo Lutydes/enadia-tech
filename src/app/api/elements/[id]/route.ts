@@ -10,32 +10,31 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const microarea = await db.microarea.findUnique({
+    const element = await db.element.findUnique({
       where: { id },
       include: {
-        elements: {
-          orderBy: { order: 'asc' },
-          include: {
-            _count: {
-              select: { questions: true },
-            },
+        microarea: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            color: true,
+            macroarea: true,
           },
         },
         _count: {
-          select: {
-            questions: true,
-          },
+          select: { questions: true },
         },
       },
     });
 
-    if (!microarea) {
-      return errorResponse('Microárea não encontrada.', 404);
+    if (!element) {
+      return errorResponse('Elemento não encontrado.', 404);
     }
 
-    return jsonResponse({ microarea });
+    return jsonResponse({ element });
   } catch (error) {
-    console.error('Get microarea error:', error);
+    console.error('Get element error:', error);
     return errorResponse('Erro interno do servidor.', 500);
   }
 }
@@ -48,46 +47,60 @@ export async function PUT(
     requireRole(request, Role.MASTER);
     const { id } = await params;
 
-    const existing = await db.microarea.findUnique({ where: { id } });
+    const existing = await db.element.findUnique({ where: { id } });
     if (!existing) {
-      return errorResponse('Microárea não encontrada.', 404);
+      return errorResponse('Elemento não encontrado.', 404);
     }
 
     const body = await request.json();
-    const { name, code, macroarea, description, color, order } = body;
+    const { code, name, description, microareaId, skillLevel, order } = body;
 
     // Check for duplicate code if code is being changed
     if (code && code !== existing.code) {
-      const duplicate = await db.microarea.findUnique({ where: { code } });
+      const duplicate = await db.element.findUnique({ where: { code } });
       if (duplicate) {
-        return errorResponse('Já existe uma microárea com este código.', 409);
+        return errorResponse('Já existe um elemento com este código.', 409);
+      }
+    }
+
+    // Verify microarea exists if being changed
+    if (microareaId && microareaId !== existing.microareaId) {
+      const microarea = await db.microarea.findUnique({ where: { id: microareaId } });
+      if (!microarea) {
+        return errorResponse('Microárea não encontrada.', 404);
       }
     }
 
     const updateData: Record<string, unknown> = {};
-    if (name !== undefined) updateData.name = name;
     if (code !== undefined) updateData.code = code;
-    if (macroarea !== undefined) updateData.macroarea = macroarea;
+    if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
-    if (color !== undefined) updateData.color = color;
+    if (microareaId !== undefined) updateData.microareaId = microareaId;
+    if (skillLevel !== undefined) updateData.skillLevel = skillLevel;
     if (order !== undefined) updateData.order = order;
 
-    const microarea = await db.microarea.update({
+    const element = await db.element.update({
       where: { id },
       data: updateData,
       include: {
-        _count: {
+        microarea: {
           select: {
-            elements: true,
-            questions: true,
+            id: true,
+            name: true,
+            code: true,
+            color: true,
+            macroarea: true,
           },
+        },
+        _count: {
+          select: { questions: true },
         },
       },
     });
 
-    return jsonResponse({ microarea });
+    return jsonResponse({ element });
   } catch (error) {
-    console.error('Update microarea error:', error);
+    console.error('Update element error:', error);
     if (error instanceof Error && (error.message.includes('Não autenticado') || error.message.includes('Acesso negado'))) {
       return errorResponse(error.message, error.message.includes('Não autenticado') ? 401 : 403);
     }
@@ -103,17 +116,16 @@ export async function DELETE(
     requireRole(request, Role.MASTER);
     const { id } = await params;
 
-    const existing = await db.microarea.findUnique({ where: { id } });
+    const existing = await db.element.findUnique({ where: { id } });
     if (!existing) {
-      return errorResponse('Microárea não encontrada.', 404);
+      return errorResponse('Elemento não encontrado.', 404);
     }
 
-    // Cascade deletes elements (via schema onDelete: Cascade)
-    await db.microarea.delete({ where: { id } });
+    await db.element.delete({ where: { id } });
 
-    return jsonResponse({ message: 'Microárea excluída com sucesso.' });
+    return jsonResponse({ message: 'Elemento excluído com sucesso.' });
   } catch (error) {
-    console.error('Delete microarea error:', error);
+    console.error('Delete element error:', error);
     if (error instanceof Error && (error.message.includes('Não autenticado') || error.message.includes('Acesso negado'))) {
       return errorResponse(error.message, error.message.includes('Não autenticado') ? 401 : 403);
     }

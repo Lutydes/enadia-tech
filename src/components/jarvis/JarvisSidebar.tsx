@@ -205,7 +205,7 @@ export function JarvisSidebar() {
               <span className="font-mono">System Online</span>
             </div>
             <p className="text-[10px] text-slate-600 mt-1 font-mono">
-              v2.0.0 • ENADE 2025
+              v2.0.0 • ENADE 2026
             </p>
           </div>
         </div>

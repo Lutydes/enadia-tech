@@ -1,34 +1,34 @@
-# Task 2 - Auth API Routes
+# Task 2 — Fix Professor User Access
 
 ## Agent: full-stack-developer
 
-## Work Summary
+## Summary
+Fixed three root causes preventing professor users from accessing the system properly.
 
-Created and updated all authentication API routes for the EnadIA project, adding support for new user fields (curso, periodo, modalidade, disciplina).
+## Changes Made
 
-## Files Created
-- `src/app/api/auth/register/route.ts` - New registration endpoint
-- `src/app/api/auth/forgot-password/route.ts` - New forgot password endpoint
+### 1. `src/store/app-store.ts` — restoreSession panel auto-set
+- **Problem**: After page refresh, `restoreSession` fetched the user but didn't set `currentPanel` based on role. The panel defaulted to `'student'`, so professors saw the student view instead of ProfessorPanel.
+- **Fix**: Added auto-detection of panel based on user role in `restoreSession`:
+  - `MASTER` → `'master'`
+  - `PROFESSOR` → `'professor'`
+  - `ALUNO` → `'student'`
 
-## Files Updated
-- `src/app/api/auth/login/route.ts` - Added new fields to response
-- `src/app/api/auth/me/route.ts` - Added new fields to select
-- `src/app/api/auth/users/route.ts` - Added new fields to GET and POST
-- `src/app/api/auth/users/[id]/route.ts` - Added new fields to GET, PUT
+### 2. `src/store/app-store.ts` — Persist currentPanel
+- **Problem**: `currentPanel` was not included in the Zustand persist `partialize` config, so it was never saved to localStorage. Even after setting it, a page refresh would lose it.
+- **Fix**: Added `currentPanel: state.currentPanel` to the `partialize` function.
 
-## Key Details
+### 3. `src/app/api/questions/[id]/test/route.ts` — New route created
+- **Problem**: ProfessorPanel's `handleSaveAndTest` function POSTs to `/api/questions/${questionId}/test`, but this route didn't exist. The POST would fail with a 404.
+- **Fix**: Created the missing route with:
+  - PROFESSOR/MASTER role requirement
+  - Ownership validation (professors can only test their own questions)
+  - Status validation (only RASCUNHO/AGUARDANDO_TESTE → EM_TESTE transition)
+  - Proper error handling consistent with other routes
 
-### Register Endpoint
-- Validates: name, email, password, ra (required for both roles)
-- ALUNO: requires curso and periodo, modalidade defaults to PRESENCIAL
-- PROFESSOR: requires disciplina
-- Checks for duplicate email and RA
-- Returns user + JWT token (same format as login)
-
-### Forgot Password Endpoint
-- Always returns success to prevent email enumeration
-- Placeholder for future email integration
-
-### All Updated Endpoints
-- Added curso, periodo, modalidade, disciplina to all select queries and responses
-- PUT endpoint on users/[id] supports updating all new fields
+## Investigation Results
+- Seed data is correct (professor@unifecaf.br / prof123, role PROFESSOR, active true)
+- Login flow works correctly — LoginForm calls `setPanel('professor')` after PROFESSOR login
+- page.tsx correctly renders ProfessorPanel when `currentPanel === 'professor' && user.role === 'PROFESSOR'`
+- ProfessorPanel does NOT access `/api/auth/users` (MASTER-only route) — no issue there
+- All ProfessorPanel API calls (`/api/questions`, `/api/microareas`, `/api/dashboard/collective`, `/api/ranking`) support PROFESSOR role

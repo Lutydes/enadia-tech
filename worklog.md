@@ -193,3 +193,90 @@ Stage Summary:
 - Question editing bug fixed: microareaId and elementId now properly loaded when editing a question
 - Professor access to dashboard API confirmed working
 - Professor ↔ student view switching confirmed working
+
+---
+Task ID: 2
+Agent: full-stack-developer
+Task: Fix Professor User Access
+
+Work Log:
+- **Investigation — Seed**: Verified professor user is seeded correctly (professor@unifecaf.br / prof123, role PROFESSOR, active true, disciplina set)
+- **Investigation — Login flow**: Login API returns correct user data including role; LoginForm correctly calls `setPanel('professor')` for PROFESSOR role after login
+- **Investigation — page.tsx**: Verified `currentPanel === 'professor' && user.role === 'PROFESSOR'` renders ProfessorPanel correctly
+- **Investigation — ProfessorPanel**: Confirmed it does NOT access `/api/auth/users` (MASTER-only route); it accesses `/api/questions`, `/api/microareas`, `/api/dashboard/collective`, `/api/ranking` — all of which support PROFESSOR role
+- **Fix 1 — restoreSession panel auto-set**: Updated `restoreSession` in `src/store/app-store.ts` to auto-set `currentPanel` based on user role after restoring session (MASTER → 'master', PROFESSOR → 'professor', ALUNO → 'student'). Previously, `currentPanel` defaulted to 'student' on refresh, causing professors to see the student view instead of ProfessorPanel.
+- **Fix 2 — Persist currentPanel**: Added `currentPanel` to the `partialize` config of the Zustand persist middleware so it's persisted across page refreshes in localStorage
+- **Fix 3 — Missing /api/questions/[id]/test route**: Created `src/app/api/questions/[id]/test/route.ts` — the ProfessorPanel's `handleSaveAndTest` function POSTs to this route but it didn't exist. The new route requires PROFESSOR/MASTER role, validates ownership (professor must be the author), checks question is in RASCUNHO/AGUARDANDO_TESTE status, and transitions it to EM_TESTE.
+- ESLint passed on all modified files with zero errors
+- Dev server running without errors
+
+Stage Summary:
+- Professor session now persists correctly: on page refresh, restoreSession auto-sets the panel based on role
+- currentPanel is now persisted to localStorage via Zustand persist middleware
+- Missing /api/questions/[id]/test route created, enabling the "Save and Test" workflow in ProfessorPanel
+- All three root causes of professor access failure identified and fixed
+
+---
+Task ID: 1
+Agent: full-stack-developer
+Task: Remove Phase System + Add Microarea/Element CRUD APIs
+
+Work Log:
+- **Part A — Clean up Phase System**:
+  - Removed `PhaseConfig` model from `prisma/schema.prisma`
+  - Deleted `/api/phases/` folder entirely (route.ts and [id]/route.ts)
+  - Removed `/api/phases` from `PUBLIC_API_ROUTES` in `src/middleware.ts`
+  - Simplified `src/hooks/usePhaseAccess.ts` to export only `hasFeature: () => true` and `isViewEnabled: () => true`, removing PhaseConfig interface, PHASE_COLORS, and PHASE_NAMES
+  - Ran `bun run db:push --accept-data-loss` to sync database (dropped PhaseConfig table)
+- **Part B — Add Microarea/Element CRUD API Routes**:
+  - Updated `/api/microareas/route.ts`: Added POST handler (MASTER only) with required fields (name, code, macroarea, description), optional color/order, duplicate code check
+  - Updated `/api/microareas/[id]/route.ts`: Added PUT (MASTER only, updates name/code/macroarea/description/color/order), DELETE (MASTER only, cascade deletes elements)
+  - Updated `/api/elements/route.ts`: Added POST handler (MASTER only) with required fields (code, name, description, microareaId), optional skillLevel/order, microarea existence and duplicate code checks
+  - Created `/api/elements/[id]/route.ts`: Full GET/PUT/DELETE — GET returns element with microarea and question count; PUT (MASTER only) updates code/name/description/microareaId/skillLevel/order; DELETE (MASTER only)
+- **Part C — Fix MASTER Question Deletion**:
+  - Updated `/api/questions/[id]/route.ts` DELETE handler: Changed status check from unconditional `!['RASCUNHO', 'REPROVADA'].includes(existing.status)` to `authUser.role !== Role.MASTER && !['RASCUNHO', 'REPROVADA'].includes(existing.status)`, allowing MASTER to delete any question regardless of status
+- **Part D — Fix dissertativa question creation**:
+  - Updated `/api/questions/route.ts` POST handler: Changed validation from requiring `correctAnswer && alternatives?.length` always, to requiring only `statement && microareaId` universally, then separately checking that OBJETIVA type requires alternatives
+  - Made alternatives creation conditional: only creates alternatives if `alternatives?.length` is truthy, allowing DISSERTATIVA questions to be created without alternatives
+  - Used `questionType` variable consistently (from `type || 'OBJETIVA'`)
+- ESLint passed on all modified files with zero errors
+- Dev server running without errors
+
+Stage Summary:
+- PhaseConfig model and all phase API routes fully removed from schema, API, middleware, and hooks
+- Microareas have full CRUD: GET list, GET single, POST create, PUT update, DELETE cascade
+- Elements have full CRUD: GET list (with filters), GET single, POST create, PUT update, DELETE
+- MASTER can now delete any question regardless of status; PROFESSOR still restricted to RASCUNHO/REPROVADA
+- DISSERTATIVA questions can be created without alternatives; OBJETIVA questions still require alternatives
+
+---
+Task ID: 3
+Agent: main
+Task: Rebuild MasterPanel with full editing capabilities + ENADE 2026 rebrand
+
+Work Log:
+- Updated ENADE 2025 → ENADE 2026 in LoginForm.tsx and JarvisSidebar.tsx
+- Completely rewrote MasterPanel.tsx with 6 tabs: Dashboard, Docentes, Alunos, Questões, Microáreas, Ranking
+- Added pencil (Edit) icon buttons for all entities: users, questions, microareas, elements
+- Added Trash2 delete icon buttons for all entities with confirm dialog
+- Added Microáreas & Elementos tab with full CRUD:
+  - Microarea table with create/edit/delete dialogs
+  - Element sub-table shown when a microarea row is clicked
+  - Color picker for microarea colors
+  - Skill level dropdown for elements
+- Added Ranking tab with student ranking table, stats cards, search, and Reset button
+- Added question batch insert via JSON dialog
+- Added question bulk status change with checkboxes
+- Added confirm dialog component for destructive actions
+- All API routes already existed from previous task (microareas CRUD, elements CRUD, ranking DELETE)
+- Lint passes with zero errors on project source files
+- Dev server running correctly
+
+Stage Summary:
+- Master user now has pencil icons to edit ANY entity in the system
+- Full CRUD for microareas and elements directly in the panel
+- Ranking management with reset capability
+- Batch question import via JSON
+- Batch user import via CSV (students and professors)
+- Delete buttons with confirmation for all entities
+- ENADE 2026 branding applied

@@ -9,7 +9,6 @@ const PUBLIC_API_ROUTES = [
   '/api/elements',
   '/api/chat',
   '/api/chat/essay-correct',
-  '/api/phases',
   '/api/ranking',
   '/api/test-db',
 ];

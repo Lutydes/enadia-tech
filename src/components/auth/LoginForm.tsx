@@ -813,7 +813,7 @@ export function LoginForm() {
             className="mt-8 pt-6 border-t border-cyan-500/10 text-center"
           >
             <p className="text-[11px] text-slate-600 font-mono">
-              EnadIA TECH — ENADE 2025
+              EnadIA TECH — ENADE 2026
             </p>
           </motion.div>
         </div>

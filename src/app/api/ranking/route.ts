@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
+import { Role } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -129,5 +131,23 @@ export async function GET(request: NextRequest) {
       { error: 'Erro ao buscar ranking' },
       { status: 500 }
     );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    requireRole(request, Role.MASTER);
+
+    // Delete all student responses and essay answers
+    await db.essayAnswer.deleteMany();
+    await db.studentResponse.deleteMany();
+
+    return jsonResponse({ message: 'Ranking resetado com sucesso. Todas as respostas foram removidas.' });
+  } catch (error) {
+    console.error('Reset ranking error:', error);
+    if (error instanceof Error && (error.message.includes('Não autenticado') || error.message.includes('Acesso negado'))) {
+      return errorResponse(error.message, error.message.includes('Não autenticado') ? 401 : 403);
+    }
+    return errorResponse('Erro interno do servidor.', 500);
   }
 }

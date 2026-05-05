@@ -210,19 +210,6 @@ model QuestionTag {
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
 
-model PhaseConfig {
-  id          String   @id @default(cuid())
-  phase       Int      @unique
-  name        String
-  description String
-  startDate   DateTime?
-  endDate     DateTime?
-  features    String
-  active      Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
 model SystemConfig {
   id        String   @id @default(cuid())
   key       String   @unique
