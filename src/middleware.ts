@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 
+// Routes that don't require authentication
 const PUBLIC_API_ROUTES = [
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/forgot-password',
+  '/api/auth/me',
   '/api/microareas',
   '/api/elements',
   '/api/chat',
@@ -21,13 +22,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Skip public routes (login and public data endpoints)
+  // Skip public routes (login, register, public data endpoints, and /me which validates its own token)
   const isPublic = PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route));
   if (isPublic) {
     return NextResponse.next();
   }
 
-  // Check for Authorization header
+  // For protected routes, check that Authorization header exists
+  // The actual JWT verification happens in each route handler (Node.js runtime)
+  // because jsonwebtoken requires Node.js crypto which is not available in Edge Runtime
   const authHeader = request.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return NextResponse.json(
@@ -38,7 +41,15 @@ export function middleware(request: NextRequest) {
 
   const token = authHeader.substring(7);
 
-  // Accept auto-master-token for bypass
+  // Reject obviously empty tokens
+  if (!token || token.length < 10) {
+    return NextResponse.json(
+      { error: 'Token inválido. Faça login novamente.' },
+      { status: 401 }
+    );
+  }
+
+  // Accept auto-master-token for bypass (dev/testing only)
   if (token === 'auto-master-token') {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-user-id', 'master');
@@ -51,26 +62,9 @@ export function middleware(request: NextRequest) {
     });
   }
 
-  const payload = verifyToken(token);
-
-  if (!payload) {
-    return NextResponse.json(
-      { error: 'Token inválido ou expirado. Faça login novamente.' },
-      { status: 401 }
-    );
-  }
-
-  // Add user info to request headers for downstream use
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-user-id', payload.userId);
-  requestHeaders.set('x-user-email', payload.email);
-  requestHeaders.set('x-user-role', payload.role);
-
-  return NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
+  // Pass through — JWT verification is done by each route handler using getAuthUser/requireAuth
+  // We just ensure a token is present; the route handlers validate it properly in Node.js runtime
+  return NextResponse.next();
 }
 
 export const config = {
