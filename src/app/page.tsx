@@ -46,10 +46,10 @@ export default function Home() {
     return <LoginForm />;
   }
 
-  // Master panel
-  if (currentPanel === 'master' && user.role === 'MASTER') {
-    return <MasterPanel />;
-  }
+  // Master panel (Temporarily disabled for debugging, falls back to student view)
+  // if (currentPanel === 'master' && user.role === 'MASTER') {
+  //   return <MasterPanel />;
+  // }
 
   // Professor panel
   if (currentPanel === 'professor' && user.role === 'PROFESSOR') {
