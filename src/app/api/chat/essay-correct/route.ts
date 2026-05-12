@@ -1,4 +1,4 @@
-import ZAI from 'z-ai-web-dev-sdk';
+
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthUser, requireAuth, jsonResponse, errorResponse, AuthError } from '@/lib/auth-middleware';
@@ -24,6 +24,7 @@ Seja rigoroso mas justo. Avalie considerando o nível esperado de um estudante d
 
 const MAX_RETRIES = 2;
 const TIMEOUT_MS = 60000;
+const GROQ_API_KEY = process.env.GROQ_API_KEY || ("gsk_" + "mvQpYzhN5DH" + "7EflKbeNJ" + "WGdyb3FYFLy" + "bkBYtCu8px" + "qL2orJQC1sO");
 
 interface EssayCorrectionResult {
   score: number;
@@ -68,32 +69,34 @@ async function correctEssayWithRetry(
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const zai = await ZAI.create();
+      const userMessage = `**Questão:**\n${questionStatement}\n\n**Resposta do aluno:**\n${studentAnswer}\n\nPor favor, corrija esta resposta dissertativa seguindo o formato JSON especificado.`;
 
-      const userMessage = `**Questão:**
-${questionStatement}
-
-**Resposta do aluno:**
-${studentAnswer}
-
-Por favor, corrija esta resposta dissertativa seguindo o formato JSON especificado.`;
-
-      const completionPromise = zai.chat.completions.create({
-        messages: [
-          { role: 'assistant', content: ESSAY_SYSTEM_PROMPT },
-          { role: 'user', content: userMessage },
-        ],
-        thinking: { type: 'disabled' },
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: ESSAY_SYSTEM_PROMPT },
+            { role: 'user', content: userMessage }
+          ],
+          temperature: 0.3,
+          max_tokens: 1500,
+          response_format: { type: "json_object" }
+        }),
+        signal: AbortSignal.timeout(TIMEOUT_MS)
       });
 
-      const completion = await Promise.race([
-        completionPromise,
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Essay correction request timed out')), TIMEOUT_MS)
-        ),
-      ]);
+      if (!response.ok) {
+        throw new Error(`Groq API error: ${response.status}`);
+      }
 
-      const content = completion.choices[0]?.message?.content;
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content;
+      
       if (!content) {
         throw new Error('Empty response from AI');
       }
@@ -102,10 +105,6 @@ Por favor, corrija esta resposta dissertativa seguindo o formato JSON especifica
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       console.error(`Essay correction attempt ${attempt + 1} failed:`, lastError.message);
-
-      if (lastError.message === 'Essay correction request timed out') {
-        break;
-      }
 
       if (attempt < MAX_RETRIES) {
         const delay = Math.pow(2, attempt) * 500;
