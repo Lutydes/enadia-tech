@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   keywords: ["EnadIA", "ENADE", "Computação", "Estudos", "IA", "Simulado"],
   authors: [{ name: "EnadIA Team" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/logo.svg",
   },
 };
 

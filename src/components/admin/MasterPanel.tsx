@@ -948,6 +948,30 @@ export function MasterPanel() {
                   <select value={questionFilter.status} onChange={e => setQuestionFilter(f => ({ ...f, status: e.target.value }))} className="bg-[#0a0e17] border border-cyan-500/20 text-gray-300 text-xs font-mono rounded-lg px-3 py-2 focus:border-cyan-500/40 outline-none"><option value="">Todos Status</option>{Object.entries(statusLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
                   <select value={questionFilter.difficulty} onChange={e => setQuestionFilter(f => ({ ...f, difficulty: e.target.value }))} className="bg-[#0a0e17] border border-cyan-500/20 text-gray-300 text-xs font-mono rounded-lg px-3 py-2 focus:border-cyan-500/40 outline-none"><option value="">Dificuldade</option><option value="fácil">Fácil</option><option value="médio">Médio</option><option value="difícil">Difícil</option></select>
                   <div className="ml-auto flex gap-2">
+                    <Button onClick={() => {
+                      const printWindow = window.open('', '', 'width=800,height=600');
+                      if (!printWindow) return;
+                      printWindow.document.write(`
+                        <html><head><title>Simulado EnadIA</title>
+                        <style>body { font-family: Arial, sans-serif; padding: 2rem; color: black; } .q { margin-bottom: 2.5rem; page-break-inside: avoid; } .context { font-size: 0.9em; color: #444; margin: 1rem 0; white-space: pre-wrap; } .statement { font-weight: bold; margin: 1rem 0; white-space: pre-wrap; } .alt { margin-bottom: 0.5rem; margin-left: 1.5rem; }</style>
+                        </head><body>
+                        <h1 style="text-align: center;">Simulado EnadIA</h1>
+                        ${filteredQuestions.map((q, i) => `
+                          <div class="q">
+                            <p><strong>Questão ${i + 1}</strong> <span style="color:#666; font-size: 0.8em">(${q.code} - ${q.microarea})</span></p>
+                            ${q.context ? `<div class="context">${q.context}</div>` : ''}
+                            <div class="statement">${q.statement}</div>
+                            ${q.alternatives && q.alternatives.length > 0 ? `<div>
+                              ${q.alternatives.map(a => `<div class="alt"><strong>${a.key})</strong> ${a.text}</div>`).join('')}
+                            </div>` : ''}
+                          </div>
+                        `).join('')}
+                        </body></html>
+                      `);
+                      printWindow.document.close();
+                      printWindow.focus();
+                      setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+                    }} className="bg-purple-600 hover:bg-purple-500 text-white font-mono text-xs"><FileSpreadsheet size={14} className="mr-1.5" /> Exportar PDF</Button>
                     <Button onClick={() => { setShowBatchQuestionDialog(true); setBatchQuestionJson(''); setBatchQuestionResult(null); }} className="bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs"><Upload size={14} className="mr-1.5" /> Inserir em Lote</Button>
                     <Button onClick={() => { setEditingQuestion(null); setQuestionForm({ ...emptyQuestionForm, alternatives: emptyAlternatives() }); setShowQuestionFormDialog(true); }} className="bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs"><Plus size={14} className="mr-1.5" /> Criar Questão</Button>
                   </div>
