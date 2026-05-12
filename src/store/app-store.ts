@@ -147,7 +147,8 @@ export const useAppStore = create<AppState>()(
               const data = await res.json();
               const user = data.user || data; // API returns { user: {...} }
               // Auto-set panel based on role
-              const panel = user.role === 'MASTER' ? 'master' : user.role === 'PROFESSOR' ? 'professor' : 'student';
+              // By default, everyone starts in student panel, and can use the sidebar button to access master/professor panels
+              const panel = 'student';
               set({ user, token, isLoading: false, currentPanel: panel });
             } else {
               // Token invalid or expired — clear it
