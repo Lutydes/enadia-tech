@@ -329,7 +329,7 @@ export function LoginForm() {
                       type="email"
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
-                      placeholder="seu.email@unifecaf.br"
+                      placeholder="seu.email@seuemail.com.br"
                       disabled={isLoading}
                       className="pl-10 h-11 bg-[#0a0e17] border-cyan-500/20 text-white placeholder:text-slate-600 font-mono text-sm focus:border-cyan-500/50 focus:ring-cyan-500/20"
                     />
@@ -481,7 +481,7 @@ export function LoginForm() {
                       type="email"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
-                      placeholder="seu.email@unifecaf.br"
+                      placeholder="seu.email@seuemail.com.br"
                       disabled={isLoading}
                       className="pl-10 h-11 bg-[#0a0e17] border-cyan-500/20 text-white placeholder:text-slate-600 font-mono text-sm focus:border-cyan-500/50 focus:ring-cyan-500/20"
                     />
@@ -720,7 +720,7 @@ export function LoginForm() {
                           type="email"
                           value={forgotEmail}
                           onChange={(e) => setForgotEmail(e.target.value)}
-                          placeholder="seu.email@unifecaf.br"
+                          placeholder="seu.email@seuemail.com.br"
                           disabled={isLoading}
                           className="pl-10 h-11 bg-[#0a0e17] border-cyan-500/20 text-white placeholder:text-slate-600 font-mono text-sm focus:border-cyan-500/50 focus:ring-cyan-500/20"
                         />

@@ -6,7 +6,7 @@ async function seed() {
 
   // ═══ UPSERT MASTER ═══
   await db.user.upsert({
-    where: { email: 'master@unifecaf.br' },
+    where: { email: 'master@seuemail.com.br' },
     update: {
       name: 'Coordenação ENADE',
       role: 'MASTER',
@@ -15,7 +15,7 @@ async function seed() {
       password: await hashPassword('master123'),
     },
     create: {
-      email: 'master@unifecaf.br',
+      email: 'master@seuemail.com.br',
       name: 'Coordenação ENADE',
       password: await hashPassword('master123'),
       role: 'MASTER',
@@ -23,11 +23,11 @@ async function seed() {
       active: true,
     },
   });
-  console.log('✅ Master: master@unifecaf.br / master123');
+  console.log('✅ Master: master@seuemail.com.br / master123');
 
   // ═══ UPSERT PROFESSOR ═══
   await db.user.upsert({
-    where: { email: 'professor@unifecaf.br' },
+    where: { email: 'professor@seuemail.com.br' },
     update: {
       name: 'Prof. Dr. Carlos Silva',
       role: 'PROFESSOR',
@@ -37,7 +37,7 @@ async function seed() {
       password: await hashPassword('prof123'),
     },
     create: {
-      email: 'professor@unifecaf.br',
+      email: 'professor@seuemail.com.br',
       name: 'Prof. Dr. Carlos Silva',
       password: await hashPassword('prof123'),
       role: 'PROFESSOR',
@@ -46,11 +46,11 @@ async function seed() {
       active: true,
     },
   });
-  console.log('✅ Professor: professor@unifecaf.br / prof123');
+  console.log('✅ Professor: professor@seuemail.com.br / prof123');
 
   // ═══ UPSERT STUDENT ═══
   await db.user.upsert({
-    where: { email: 'aluno@unifecaf.br' },
+    where: { email: 'aluno@seuemail.com.br' },
     update: {
       name: 'Maria Santos',
       role: 'ALUNO',
@@ -62,7 +62,7 @@ async function seed() {
       password: await hashPassword('aluno123'),
     },
     create: {
-      email: 'aluno@unifecaf.br',
+      email: 'aluno@seuemail.com.br',
       name: 'Maria Santos',
       password: await hashPassword('aluno123'),
       role: 'ALUNO',
@@ -73,13 +73,13 @@ async function seed() {
       active: true,
     },
   });
-  console.log('✅ Aluno: aluno@unifecaf.br / aluno123');
+  console.log('✅ Aluno: aluno@seuemail.com.br / aluno123');
 
   // ═══ ADDITIONAL TEST STUDENTS ═══
   const testStudents = [
-    { email: 'joao@unifecaf.br', name: 'João Oliveira', ra: '2024002', curso: 'Ciência da Computação', periodo: 4, modalidade: 'EAD' as const, password: 'joao123' },
-    { email: 'ana@unifecaf.br', name: 'Ana Costa', ra: '2024003', curso: 'Sistemas de Informação', periodo: 8, modalidade: 'PRESENCIAL' as const, password: 'ana123' },
-    { email: 'pedro@unifecaf.br', name: 'Pedro Lima', ra: '2024004', curso: 'Ciência da Computação', periodo: 2, modalidade: 'SEMIPRESENCIAL' as const, password: 'pedro123' },
+    { email: 'joao@seuemail.com.br', name: 'João Oliveira', ra: '2024002', curso: 'Ciência da Computação', periodo: 4, modalidade: 'EAD' as const, password: 'joao123' },
+    { email: 'ana@seuemail.com.br', name: 'Ana Costa', ra: '2024003', curso: 'Sistemas de Informação', periodo: 8, modalidade: 'PRESENCIAL' as const, password: 'ana123' },
+    { email: 'pedro@seuemail.com.br', name: 'Pedro Lima', ra: '2024004', curso: 'Ciência da Computação', periodo: 2, modalidade: 'SEMIPRESENCIAL' as const, password: 'pedro123' },
   ];
 
   for (const s of testStudents) {
@@ -111,7 +111,7 @@ async function seed() {
 
   // ═══ ADDITIONAL TEST PROFESSOR ═══
   await db.user.upsert({
-    where: { email: 'maria.prof@unifecaf.br' },
+    where: { email: 'maria.prof@seuemail.com.br' },
     update: {
       name: 'Profa. Dra. Maria Fernandes',
       role: 'PROFESSOR',
@@ -121,7 +121,7 @@ async function seed() {
       password: await hashPassword('maria123'),
     },
     create: {
-      email: 'maria.prof@unifecaf.br',
+      email: 'maria.prof@seuemail.com.br',
       name: 'Profa. Dra. Maria Fernandes',
       password: await hashPassword('maria123'),
       role: 'PROFESSOR',
@@ -130,7 +130,7 @@ async function seed() {
       active: true,
     },
   });
-  console.log('✅ Professor: maria.prof@unifecaf.br / maria123');
+  console.log('✅ Professor: maria.prof@seuemail.com.br / maria123');
 
   await db.$disconnect();
   console.log('🎉 Seed complete!');

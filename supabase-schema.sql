@@ -501,7 +501,7 @@ INSERT INTO public.phase_configs (phase, name, description, features, active) VA
 -- Insert default MASTER user (password: master123 - bcrypt hash)
 -- NOTE: Change this password immediately after first login!
 INSERT INTO public.users (email, name, password, role, ra, active) VALUES
-('master@unifecaf.br', 'Coordenação ENADE', '$2a$12$LJ3m4ys3Hz0JeVN5UxCE/.9.9.9 PLACEHOLDER_HASH_CHANGE_ME', 'MASTER', 'MASTER001', true);
+('master@seuemail.com.br', 'Coordenação ENADE', '$2a$12$LJ3m4ys3Hz0JeVN5UxCE/.9.9.9 PLACEHOLDER_HASH_CHANGE_ME', 'MASTER', 'MASTER001', true);
 
 -- ======================== VIEWS FOR REPORTS ========================
 

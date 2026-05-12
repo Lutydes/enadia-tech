@@ -17,6 +17,6 @@ Work Log:
 Stage Summary:
 - **9 bugs fixed** in MasterPanel.tsx and ProfessorPanel.tsx
 - Database seed updated with proper data for all test users
-- Test credentials: master@unifecaf.br/master123, professor@unifecaf.br/prof123, aluno@unifecaf.br/aluno123
+- Test credentials: master@seuemail.com.br/master123, professor@seuemail.com.br/prof123, aluno@seuemail.com.br/aluno123
 - Additional test users added: joao/joao123, ana/ana123, pedro/pedro123, maria.prof/maria123
 - System is functional and ready for preview/testing

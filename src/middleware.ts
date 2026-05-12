@@ -53,7 +53,7 @@ export function middleware(request: NextRequest) {
   if (token === 'auto-master-token') {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-user-id', 'master');
-    requestHeaders.set('x-user-email', 'master@unifecaf.br');
+    requestHeaders.set('x-user-email', 'master@seuemail.com.br');
     requestHeaders.set('x-user-role', 'MASTER');
     return NextResponse.next({
       request: {

@@ -83,9 +83,9 @@ bun run prisma/seed.ts
 Usuários criados pelo seed:
 | Role | Email | Senha |
 |------|-------|-------|
-| MASTER | master@unifecaf.br | master123 |
-| PROFESSOR | professor@unifecaf.br | prof123 |
-| ALUNO | aluno@unifecaf.br | aluno123 |
+| MASTER | master@seuemail.com.br | master123 |
+| PROFESSOR | professor@seuemail.com.br | prof123 |
+| ALUNO | aluno@seuemail.com.br | aluno123 |
 
 ⚠️ **TROQUE AS SENHAS PADRÃO** após o primeiro login!
 
@@ -125,7 +125,7 @@ bun run prisma/seed-questions.ts
 O CSV deve ter o formato:
 ```
 nome,email,ra,curso,periodo,modalidade,senha
-João Silva,joao.silva@unifecaf.br,2024001,Ciência da Computação,6,PRESENCIAL,joao123
+João Silva,joao.silva@seuemail.com.br,2024001,Ciência da Computação,6,PRESENCIAL,joao123
 ```
 
 | Campo | Obrigatório | Descrição |
@@ -142,7 +142,7 @@ João Silva,joao.silva@unifecaf.br,2024001,Ciência da Computação,6,PRESENCIAL
 
 ```
 nome,email,ra,disciplina,senha
-Prof. Dr. Carlos,carlos@unifecaf.br,PROF001,Engenharia de Software,prof123
+Prof. Dr. Carlos,carlos@seuemail.com.br,PROF001,Engenharia de Software,prof123
 ```
 
 | Campo | Obrigatório | Descrição |
@@ -157,7 +157,7 @@ Prof. Dr. Carlos,carlos@unifecaf.br,PROF001,Engenharia de Software,prof123
 
 #### Opção 1: Pelo Painel Master (Interface Web)
 
-1. Faça login como MASTER (master@unifecaf.br)
+1. Faça login como MASTER (master@seuemail.com.br)
 2. Vá na aba **Alunos** ou **Docentes**
 3. Clique em **Importar CSV**
 4. Cole o conteúdo do CSV ou use o template
@@ -173,7 +173,7 @@ curl -X POST https://seudominio.com/api/auth/users/csv-import \
   -d '{
     "role": "ALUNO",
     "format": "csv",
-    "data": "nome,email,ra,curso,periodo,modalidade,senha\nJoão Silva,joao@unifecaf.br,2024001,Ciência da Computação,6,PRESENCIAL,joao123",
+    "data": "nome,email,ra,curso,periodo,modalidade,senha\nJoão Silva,joao@seuemail.com.br,2024001,Ciência da Computação,6,PRESENCIAL,joao123",
     "defaultPassword": "enadia123"
   }'
 ```
@@ -186,7 +186,7 @@ curl -X POST https://seudominio.com/api/auth/users/csv-import \
   -d '{
     "role": "PROFESSOR",
     "format": "csv",
-    "data": "nome,email,ra,disciplina,senha\nProf. Carlos,carlos@unifecaf.br,PROF001,Engenharia de Software,prof123"
+    "data": "nome,email,ra,disciplina,senha\nProf. Carlos,carlos@seuemail.com.br,PROF001,Engenharia de Software,prof123"
   }'
 ```
 
@@ -199,8 +199,8 @@ curl -X POST https://seudominio.com/api/auth/users/csv-import \
   -d '{
     "role": "ALUNO",
     "data": [
-      {"name": "João Silva", "email": "joao@unifecaf.br", "ra": "2024001", "curso": "Ciência da Computação", "periodo": "6", "modalidade": "PRESENCIAL", "senha": "joao123"},
-      {"name": "Ana Oliveira", "email": "ana@unifecaf.br", "ra": "2024002", "curso": "Sistemas de Informação", "periodo": "4", "senha": "ana123"}
+      {"name": "João Silva", "email": "joao@seuemail.com.br", "ra": "2024001", "curso": "Ciência da Computação", "periodo": "6", "modalidade": "PRESENCIAL", "senha": "joao123"},
+      {"name": "Ana Oliveira", "email": "ana@seuemail.com.br", "ra": "2024002", "curso": "Sistemas de Informação", "periodo": "4", "senha": "ana123"}
     ]
   }'
 ```

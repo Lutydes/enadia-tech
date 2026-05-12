@@ -23,8 +23,8 @@ Successfully removed all phase/gating system references and rebranded the applic
 - Replaced all 6 instances of `PHASE_COLORS[currentTypeConfig?.minPhase || 1]` with `'#00f0ff'`
 
 ### 4. `src/components/auth/LoginForm.tsx`
-- Line 278: "Sistema de Preparação ENADE — UNIFECAF" → "EnadIA TECH — Preparação ENADE"
-- Line 816: "Acesso restrito — UNIFECAF • ENADE 2025" → "EnadIA TECH — ENADE 2025"
+- Line 278: "Sistema de Preparação ENADE — Instituição" → "EnadIA TECH — Preparação ENADE"
+- Line 816: "Acesso restrito — Instituição • ENADE 2025" → "EnadIA TECH — ENADE 2025"
 
 ### 5. `src/components/admin/AdminLayout.tsx`
 - Header: "EnadIA" → "EnadIA TECH" with cyan sub-text styling

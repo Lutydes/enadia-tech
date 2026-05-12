@@ -27,7 +27,7 @@ Fixed three root causes preventing professor users from accessing the system pro
   - Proper error handling consistent with other routes
 
 ## Investigation Results
-- Seed data is correct (professor@unifecaf.br / prof123, role PROFESSOR, active true)
+- Seed data is correct (professor@seuemail.com.br / prof123, role PROFESSOR, active true)
 - Login flow works correctly — LoginForm calls `setPanel('professor')` after PROFESSOR login
 - page.tsx correctly renders ProfessorPanel when `currentPanel === 'professor' && user.role === 'PROFESSOR'`
 - ProfessorPanel does NOT access `/api/auth/users` (MASTER-only route) — no issue there
