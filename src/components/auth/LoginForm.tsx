@@ -255,7 +255,7 @@ export function LoginForm() {
               animate={isLoading ? { scale: [1, 1.05, 1] } : {}}
               transition={isLoading ? { duration: 1.5, repeat: Infinity, ease: 'easeInOut' } : {}}
             >
-              {/* <EnadIAOrb size="xl" isThinking={isLoading} /> */}
+              <EnadIAOrb size="xl" isThinking={isLoading} />
             </motion.div>
           </div>
 
