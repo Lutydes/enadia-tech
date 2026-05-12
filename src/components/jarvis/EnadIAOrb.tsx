@@ -98,10 +98,9 @@ export function EnadIAOrb({ isThinking = false, size = 'md' }: EnadIAOrbProps) {
           strokeWidth={s.strokeWidth * 2}
           animate={{
             opacity: isThinking ? [0.3, 0.8, 0.3] : [0.3, 0.5, 0.3],
-            r: isThinking
-              ? [s.core + 4, s.core + 8, s.core + 4]
-              : [s.core + 4, s.core + 5, s.core + 4],
+            scale: isThinking ? [1, 1.2, 1] : [1, 1.05, 1],
           }}
+          style={{ transformOrigin: `${cx}px ${cy}px` }}
           transition={{ duration: isThinking ? 1.5 : 3, repeat: Infinity, ease: 'easeInOut' }}
         />
 
@@ -124,7 +123,8 @@ export function EnadIAOrb({ isThinking = false, size = 'md' }: EnadIAOrbProps) {
           cy={cy}
           r={s.core}
           fill={`url(#core-gradient-${size})`}
-          animate={{ r: isThinking ? [s.core, s.core + 2, s.core] : s.core }}
+          animate={isThinking ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+          style={{ transformOrigin: `${cx}px ${cy}px` }}
           transition={{ duration: isThinking ? 1.5 : 3, repeat: Infinity, ease: 'easeInOut' }}
         />
 
