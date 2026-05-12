@@ -1,4 +1,3 @@
-import ZAI from 'z-ai-web-dev-sdk';
 import { NextRequest, NextResponse } from 'next/server';
 
 const SYSTEM_PROMPT = `Você é a EnadIA, uma assistente de IA avançada criada para ajudar estudantes de Computação a se prepararem para o ENADE (Exame Nacional de Desempenho dos Estudantes) no Brasil. Suas características:
@@ -49,58 +48,39 @@ IMPORTANTE:
 - Priorize clareza e precisão
 - Adaptar a complexidade da resposta ao nível do usuário`;
 
-const MAX_RETRIES = 2;
-const TIMEOUT_MS = 30000;
 const FALLBACK_RESPONSE = 'Desculpe, estou com dificuldades para processar sua mensagem no momento. Por favor, tente novamente em alguns segundos. Se o problema persistir, reformule sua pergunta.';
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-async function callAIWithRetry(messages: Array<{ role: string; content: string }>): Promise<string> {
-  let lastError: Error | null = null;
+async function callGroqAPI(messages: Array<{ role: string; content: string }>): Promise<string> {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${GROQ_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...messages
+      ],
+      temperature: 0.7,
+      max_tokens: 1500
+    })
+  });
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const zai = await ZAI.create();
-
-      const completionPromise = zai.chat.completions.create({
-        messages: [
-          { role: 'assistant', content: SYSTEM_PROMPT },
-          ...messages,
-        ],
-        thinking: { type: 'disabled' },
-      });
-
-      // Race between the API call and a timeout
-      const completion = await Promise.race([
-        completionPromise,
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('AI request timed out')), TIMEOUT_MS)
-        ),
-      ]);
-
-      const content = completion.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error('Empty response from AI');
-      }
-
-      return content;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`Chat API attempt ${attempt + 1} failed:`, lastError.message);
-
-      // Don't retry on timeout — just fail fast
-      if (lastError.message === 'AI request timed out') {
-        console.error('Chat API timed out, not retrying');
-        break;
-      }
-
-      // Wait before retrying (exponential backoff)
-      if (attempt < MAX_RETRIES) {
-        const delay = Math.pow(2, attempt) * 500;
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error('Groq API Error:', errorData);
+    throw new Error('Groq API failed with status ' + response.status);
   }
 
-  throw lastError || new Error('All retry attempts failed');
+  const data = await response.json();
+  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    throw new Error('Invalid response format from Groq API');
+  }
+
+  return data.choices[0].message.content;
 }
 
 export async function POST(request: NextRequest) {
@@ -128,7 +108,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const aiResponse = await callAIWithRetry(validMessages);
+    const aiResponse = await callGroqAPI(validMessages);
 
     return NextResponse.json({ message: aiResponse });
   } catch (error) {
