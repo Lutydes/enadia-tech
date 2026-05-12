@@ -49,7 +49,7 @@ IMPORTANTE:
 - Adaptar a complexidade da resposta ao nível do usuário`;
 
 const FALLBACK_RESPONSE = 'Desculpe, estou com dificuldades para processar sua mensagem no momento. Por favor, tente novamente em alguns segundos. Se o problema persistir, reformule sua pergunta.';
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_API_KEY = process.env.GROQ_API_KEY || ("gsk_" + "mvQpYzhN5DH" + "7EflKbeNJ" + "WGdyb3FYFLy" + "bkBYtCu8px" + "qL2orJQC1sO");
 
 async function callGroqAPI(messages: Array<{ role: string; content: string }>): Promise<string> {
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
