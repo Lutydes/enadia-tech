@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       db.question.findMany({
         where,
         include: {
-          microarea: { select: { id: true, name: true, code: true, color: true } },
+          microarea: { select: { id: true, name: true, code: true, color: true, macroarea: true } },
           element: { select: { id: true, name: true, code: true } },
           author: { select: { id: true, name: true } },
           validator: { select: { id: true, name: true } },

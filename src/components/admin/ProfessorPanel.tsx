@@ -77,6 +77,7 @@ import {
 interface QuestionData {
   id: string;
   code: string;
+  macroarea: string;
   microarea: string;
   microareaId?: string;
   element: string;
@@ -240,6 +241,7 @@ function mapQuestionFromAPI(q: Record<string, unknown>): QuestionData {
   return {
     id: q.id as string,
     code: q.code as string,
+    macroarea: microareaObj?.macroarea || '',
     microarea: microareaObj?.name || '',
     microareaId: microareaObj?.id || (q.microareaId as string) || '',
     element: elementObj?.name || '',
@@ -661,7 +663,7 @@ export function ProfessorPanel() {
             {[
               { value: 'my-questions', label: 'Minhas Questões', icon: <FileQuestion size={14} />, badge: allQuestions.length },
               { value: 'create', label: 'Criar Questão', icon: <Plus size={14} /> },
-              { value: 'pre-test', label: 'Pré-teste Gemini', icon: <Brain size={14} />, badge: pretestQuestions.length },
+              { value: 'pre-test', label: 'Pré-teste EnadIA', icon: <Brain size={14} />, badge: pretestQuestions.length },
               { value: 'validate', label: 'Validar Questões', icon: <CheckCircle2 size={14} />, badge: validationQuestions.length },
               { value: 'student-reports', label: 'Relatório de Alunos', icon: <Users size={14} />, badge: rankingStudents.length },
               { value: 'simulados', label: 'Simulados', icon: <ClipboardList size={14} /> },
@@ -761,7 +763,11 @@ export function ProfessorPanel() {
                       filteredQuestions.map((q) => (
                         <TableRow key={q.id} className="border-b border-cyan-500/5 hover:bg-white/[0.02]">
                           <TableCell className="text-xs text-cyan-400/80 font-mono">{q.code}</TableCell>
-                          <TableCell className="text-xs text-gray-300 font-mono max-w-[150px] truncate">{q.microarea}</TableCell>
+                          <TableCell className="text-xs text-gray-300 font-mono max-w-[200px] truncate">
+                            {q.macroarea && <span className="text-[10px] text-gray-500 block">{q.macroarea}</span>}
+                            {q.microarea}
+                            {q.element && <span className="text-[10px] text-cyan-400/70 block">{q.element}</span>}
+                          </TableCell>
                           <TableCell className={`text-xs font-mono ${difficultyColors[q.difficulty] || 'text-gray-400'}`}>{capitalizeFirst(q.difficulty)}</TableCell>
                           <TableCell>
                             <Badge className={`text-[10px] font-mono ${statusColors[q.status] || 'bg-gray-500/20 text-gray-400'}`}>
@@ -848,7 +854,7 @@ export function ProfessorPanel() {
                       {viewingQuestion.geminiFeedback && (
                         <div>
                           <p className="text-xs text-gray-500 font-mono mb-1 flex items-center gap-1">
-                            <Brain size={12} /> FEEDBACK GEMINI
+                            <Brain size={12} /> FEEDBACK ENADIA
                           </p>
                           <div className={`p-3 rounded-lg border ${viewingQuestion.geminiApproved ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
                             <p className="text-xs text-gray-300 font-mono whitespace-pre-wrap">{viewingQuestion.geminiFeedback}</p>
@@ -1060,12 +1066,12 @@ export function ProfessorPanel() {
             </motion.div>
           </TabsContent>
 
-          {/* ======================== PRÉ-TESTE GEMINI ======================== */}
+          {/* ======================== PRÉ-TESTE ENADIA ======================== */}
           <TabsContent value="pre-test">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
               <div className="flex items-center gap-3 mb-2">
                 <Brain size={16} className="text-purple-400" />
-                <h3 className="text-sm font-mono text-cyan-400 tracking-wider">Questões em Pré-teste Gemini</h3>
+                <h3 className="text-sm font-mono text-cyan-400 tracking-wider">Questões em Pré-teste EnadIA</h3>
                 <Badge className="text-[10px] font-mono bg-purple-500/20 text-purple-400">{pretestQuestions.length}</Badge>
               </div>
 
@@ -1073,7 +1079,7 @@ export function ProfessorPanel() {
                 <div className="jarvis-card p-12 text-center">
                   <Sparkles size={40} className="mx-auto text-purple-500/20 mb-4" />
                   <p className="text-gray-500 font-mono text-sm">Nenhuma questão aguardando pré-teste</p>
-                  <p className="text-gray-600 font-mono text-xs mt-1">Envie questões para que o Gemini as analise</p>
+                  <p className="text-gray-600 font-mono text-xs mt-1">Envie questões para que a EnadIA as analise</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1112,7 +1118,7 @@ export function ProfessorPanel() {
                               <XCircle size={14} className="text-red-400" />
                             )}
                             <span className={`text-xs font-bold font-mono ${q.geminiApproved ? 'text-green-400' : 'text-red-400'}`}>
-                              {q.geminiApproved ? 'APROVADA PELO GEMINI' : 'REPROVADA PELO GEMINI'}
+                              {q.geminiApproved ? 'APROVADA PELA ENADIA' : 'REPROVADA PELA ENADIA'}
                             </span>
                           </div>
                           <p className="text-xs text-gray-400 font-mono whitespace-pre-wrap">{q.geminiFeedback}</p>
@@ -1127,7 +1133,7 @@ export function ProfessorPanel() {
                       ) : (
                         <div className="p-4 rounded-lg bg-purple-500/5 border border-purple-500/20 flex items-center gap-3">
                           <div className="w-5 h-5 rounded-full border-2 border-purple-500/30 border-t-purple-400 animate-spin" />
-                          <span className="text-xs text-purple-400 font-mono">Gemini está analisando esta questão...</span>
+                          <span className="text-xs text-purple-400 font-mono">EnadIA está analisando esta questão...</span>
                         </div>
                       )}
 
@@ -1207,10 +1213,10 @@ export function ProfessorPanel() {
                         </div>
                       )}
 
-                      {/* Gemini feedback for validation */}
+                      {/* EnadIA feedback for validation */}
                       {q.geminiFeedback && (
                         <div className="p-3 rounded-lg bg-cyan-500/5 border border-cyan-500/10 mb-3">
-                          <p className="text-[10px] text-gray-500 font-mono mb-1">FEEDBACK DO GEMINI</p>
+                          <p className="text-[10px] text-gray-500 font-mono mb-1">FEEDBACK DA ENADIA</p>
                           <p className="text-xs text-gray-400 font-mono line-clamp-3">{q.geminiFeedback}</p>
                           {q.geminiTriSuggestion && (
                             <p className="text-[10px] text-cyan-400/70 font-mono mt-1">
