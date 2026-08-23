@@ -3,89 +3,92 @@
 ## Arquitetura
 
 ```
-┌───────────────────────────────────────────────────────┐
-│                  SUPABASE (1 banco)                   │
-│                                                        │
-│  📋 Questões, Microareas, Elements  ← COMPARTILHADAS  │
-│  👥 Users (coluna "instance")         ← ISOLADAS      │
-│  📊 Responses (referenciam user)      ← ISOLADAS      │
-│  🏆 Ranking (calculado por instance)  ← ISOLADAS      │
-│                                                        │
-│  instance = 'ENADIA'  → Site 1                            │
-│  instance = 'FECAP'   → Site 2                            │
-└───────────────────────────────────────────────────────┘
-         │                            │
-    ┌────▼─────┐              ┌──────▼─────┐
-    │ NETLIFY  │              │  NETLIFY   │
-    │ Site 1   │              │  Site 2    │
-    │ EnadIA   │              │  EnadIA    │
-    │ TECH     │              │  FECAP     │
-    └──────────┘              └────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                    SUPABASE (1 banco)                      │
+│                                                             │
+│  📋 Questões, Microareas, Elements   ← COMPARTILHADAS      │
+│  👥 Users (coluna "instance")        ← ISOLADAS            │
+│  📊 Responses (referenciam user)     ← ISOLADAS            │
+│  🏆 Ranking (calculado por instance) ← ISOLADAS            │
+│                                                             │
+│  instance = 'ENADIA'   → Site 1                            │
+│  instance = 'FECAP'    → Site 2                            │
+│  instance = 'UNIFECAF' → Site 3                            │
+└───────────────────────────────────────────────────────────┘
+        │                    │                    │
+   ┌────▼─────┐        ┌─────▼──────┐      ┌──────▼───────┐
+   │ NETLIFY  │        │  NETLIFY   │      │   NETLIFY    │
+   │ Site 1   │        │  Site 2    │      │   Site 3     │
+   │ EnadIA   │        │  EnadIA    │      │   EnadIA     │
+   │ (geral)  │        │  FECAP     │      │   UNIFECAF   │
+   └──────────┘        └────────────┘      └──────────────┘
 ```
+
+## Status atual (2026-08-23)
+
+- ✅ Projeto Supabase já existe e está com o schema novo aplicado (`prisma db push` com `prisma/schema.supabase.prisma`)
+- ✅ 15 microáreas seedadas
+- ✅ Contas existentes reimportadas: 6 alunos + 1 master em `FECAP`, 1 master em `UNIFECAF`
+- ⬜ Sites do Netlify: a criar
+
+Isso significa que **PASSO 1 e PASSO 2 abaixo já foram feitos** para este projeto — deixados aqui só como referência caso precise recriar do zero no futuro (ex: outro Supabase, outro cliente).
 
 ---
 
-## PASSO 0 — Trocar o Prisma Schema para PostgreSQL
+## PASSO 0 — Schemas Prisma (já configurado, não precisa fazer nada)
 
-Antes de fazer deploy, é preciso trocar o schema do Prisma:
+O projeto tem 2 schemas Prisma:
+- `prisma/schema.prisma` → SQLite (desenvolvimento local, `npm run dev`)
+- `prisma/schema.supabase.prisma` → PostgreSQL (produção, Supabase)
 
-```bash
-# O projeto tem 2 schemas Prisma:
-#   prisma/schema.prisma          → SQLite (desenvolvimento local)
-#   prisma/schema.supabase.prisma → PostgreSQL (deploy Supabase)
-
-cp prisma/schema.supabase.prisma prisma/schema.prisma
-```
-
-Faça isso **antes** do commit que vai para o Netlify.
+O `netlify.toml` já roda `npx prisma generate --schema=prisma/schema.supabase.prisma` no build, então o site em produção sempre usa o schema do Postgres automaticamente — **não precisa copiar/trocar arquivos antes do deploy**.
 
 ---
 
-## PASSO 1 — Criar o projeto no Supabase
+## PASSO 1 — Criar o projeto no Supabase (referência — já feito)
 
 1. Acesse [supabase.com](https://supabase.com) e crie um novo projeto
 2. Anote a **senha** do banco (você vai precisar)
-3. Vá em **Settings → Database → Connection string → URI**
-4. Copie as strings de conexão (pooler e direta)
+3. Vá em **Settings → Database → Connect → Direct connection**
+4. Copie a connection string (direta, porta 5432)
 
-## PASSO 2 — Executar o Schema SQL
+## PASSO 2 — Criar o schema (referência — já feito)
 
-1. No Supabase, vá em **SQL Editor**
-2. Abra o arquivo `supabase/migration.sql` do projeto
-3. Cole todo o conteúdo e clique em **Run**
-4. Isso cria todas as tabelas, índices e views
+Não use o arquivo `supabase/migration.sql` manualmente — ele ficou desatualizado (nomes de tabela em `snake_case` incompatíveis com o Prisma). Em vez disso, rode direto do terminal:
 
-## PASSO 3 — Criar os 2 sites no Netlify
+```bash
+DATABASE_URL="postgresql://postgres:[SENHA]@db.[PROJETO_ID].supabase.co:5432/postgres" \
+DIRECT_URL="postgresql://postgres:[SENHA]@db.[PROJETO_ID].supabase.co:5432/postgres" \
+npx prisma db push --schema=prisma/schema.supabase.prisma
+```
 
-### Site 1: EnadIA TECH
+Isso cria as tabelas exatamente como o Prisma espera (evita qualquer divergência entre schema SQL escrito à mão e o schema real).
+
+## PASSO 3 — Criar os 3 sites no Netlify
+
+Para cada site:
 1. Faça login em [netlify.com](https://netlify.com)
 2. **Add new site → Import an existing project → GitHub**
-3. Conecte seu repositório
-4. Configure as variáveis de ambiente (veja abaixo)
+3. Conecte o repositório `enadia-tech` (mesmo repo e mesma branch nos 3 sites)
+4. Configure as variáveis de ambiente do site correspondente (veja abaixo)
 5. Deploy
-
-### Site 2: EnadIA FECAP
-1. **Add new site → Import an existing project → GitHub** (mesmo repo!)
-2. Mesmo branch
-3. Configure as variáveis de ambiente DIFERENTES (veja abaixo)
-4. Deploy
 
 ---
 
 ## Variáveis de Ambiente (Netlify → Site Settings → Environment Variables)
 
-### Comum a ambos os sites:
-| Variável | Exemplo | Descrição |
-|----------|---------|------------|
-| `DATABASE_URL` | `postgresql://postgres.xxx...` | Connection string via pooler |
-| `DIRECT_URL` | `postgresql://postgres.xxx...` | Connection string direta |
-| `JWT_SECRET` | `sua-chave-super-secreta` | **USE CHAVES DIFERENTES** para cada site |
-| `GROQ_API_KEY` | `gsk_...` | Chave da API do Groq (console.groq.com/keys) — pode ser a **mesma** para os 2 sites, ou uma para cada se quiser limites separados |
+### Comuns aos 3 sites:
+| Variável | Valor | Descrição |
+|----------|-------|------------|
+| `DATABASE_URL` | `postgresql://postgres:[SENHA]@db.[PROJETO_ID].supabase.co:5432/postgres` | Connection string do Supabase |
+| `DIRECT_URL` | (igual ao `DATABASE_URL`) | Usada por migrações do Prisma |
+| `GROQ_API_KEY` | `gsk_...` | Chave da API do Groq (console.groq.com/keys) — pode ser a mesma nos 3 sites |
 
-### Site 1 — EnadIA TECH:
+### Site 1 — EnadIA (geral):
 | Variável | Valor |
 |----------|-------|
 | `APP_INSTANCE` | `ENADIA` |
+| `JWT_SECRET` | chave única gerada para esse site (não reutilizar) |
 | `NEXT_PUBLIC_APP_NAME` | `EnadIA` |
 | `NEXT_PUBLIC_APP_SUBTITLE` | `ENADE Assistant` |
 | `NEXT_PUBLIC_APP_BRAND` | `EnadIA TECH` |
@@ -95,30 +98,23 @@ Faça isso **antes** do commit que vai para o Netlify.
 | Variável | Valor |
 |----------|-------|
 | `APP_INSTANCE` | `FECAP` |
+| `JWT_SECRET` | chave única gerada para esse site (não reutilizar) |
 | `NEXT_PUBLIC_APP_NAME` | `EnadIA` |
 | `NEXT_PUBLIC_APP_SUBTITLE` | `ENADE Assistant` |
 | `NEXT_PUBLIC_APP_BRAND` | `Centro Universitário FECAP` |
 | `NEXT_PUBLIC_APP_FOOTER` | `Centro Universitário FECAP` |
 
----
+### Site 3 — EnadIA UNIFECAF:
+| Variável | Valor |
+|----------|-------|
+| `APP_INSTANCE` | `UNIFECAF` |
+| `JWT_SECRET` | chave única gerada para esse site (não reutilizar) |
+| `NEXT_PUBLIC_APP_NAME` | `EnadIA` |
+| `NEXT_PUBLIC_APP_SUBTITLE` | `ENADE Assistant` |
+| `NEXT_PUBLIC_APP_BRAND` | `UNIFECAF` |
+| `NEXT_PUBLIC_APP_FOOTER` | `UNIFECAF` |
 
-## PASSO 4 — Gerar o Prisma Client (primeiro deploy)
-
-No terminal local, antes de fazer push:
-
-```bash
-# Instalar dependências
-npm install
-
-# Gerar o Prisma Client para PostgreSQL
-npx prisma generate
-
-# (Opcional) Testar localmente com:
-# cp .env.example .env.local
-# (preencha com suas credenciais Supabase)
-# npx prisma db push
-# npm run dev
-```
+> As 3 chaves `JWT_SECRET` foram geradas e compartilhadas fora deste arquivo (não devem ser commitadas em lugar nenhum). Guarde-as em local seguro (gerenciador de senhas ou nas próprias configurações do Netlify).
 
 ---
 
@@ -127,20 +123,20 @@ npx prisma generate
 - Quando um aluno se cadastra, a coluna `instance` recebe `APP_INSTANCE` (ex: `FECAP`)
 - O token JWT inclui o `instance` do usuário
 - Todas as queries de ranking, dashboard e relatórios filtram por `instance`
-- Um aluno do site FECAP **nunca** aparece no ranking do site ENADIA
-- Questões e microáreas são **compartilhadas** entre os dois sites
+- Um aluno do site FECAP **nunca** aparece no ranking do site ENADIA ou UNIFECAF
+- Questões e microáreas são **compartilhadas** entre os três sites
 
 ---
 
-## Estrutura de Connection String do Supabase
+## Testar localmente contra o Supabase (opcional)
 
+```bash
+DATABASE_URL="postgresql://postgres:[SENHA]@db.[PROJETO_ID].supabase.co:5432/postgres" \
+DIRECT_URL="postgresql://postgres:[SENHA]@db.[PROJETO_ID].supabase.co:5432/postgres" \
+npx prisma generate --schema=prisma/schema.supabase.prisma
+
+DATABASE_URL="postgresql://postgres:[SENHA]@db.[PROJETO_ID].supabase.co:5432/postgres" \
+npm run dev
 ```
-# Pooler (para queries normais - adiciona ?pgbouncer=true)
-DATABASE_URL="postgresql://postgres.PROJETO_ID:[SENHA]@aws-1-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
 
-# Direta (para migrações - SEM pgbouncer)
-DIRECT_URL="postgresql://postgres.PROJETO_ID:[SENHA]@aws-1-south-1.pooler.supabase.com:5432/postgres"
-```
-
-> ⚠️ Substitua `PROJETO_ID` e `[SENHA]` pelos valores reais do seu Supabase.
-> A região pode variar (south-1, east-1, etc).
+> ⚠️ Nunca coloque a connection string real do Supabase no `.env` que vai para o Git — use apenas localmente ou nas variáveis de ambiente do Netlify.

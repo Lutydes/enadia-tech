@@ -2,7 +2,7 @@
 # Docs: https://docs.netlify.com/frameworks/next-js/
 
 [build]
-  command = "npx prisma generate && npm run build"
+  command = "npx prisma generate --schema=prisma/schema.supabase.prisma && npm run build"
   publish = ".next"
 
 # Netlify precisa saber que é Next.js
