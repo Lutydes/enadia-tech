@@ -131,14 +131,15 @@ export async function GET(request: NextRequest) {
         periodo: u.periodo,
         totalAnswered: u.totalAnswered,
         totalCorrect: u.totalCorrect,
+        points: u.totalCorrect, // 1 ponto por resposta correta — acumula conforme mais simulados são feitos
         hitRate: u.totalAnswered > 0 ? Math.round((u.totalCorrect / u.totalAnswered) * 100) : 0,
         avgResponseTime: u.responseTimeCount > 0
           ? Math.round(u.totalResponseTime / u.responseTimeCount)
           : null,
       }))
       .sort((a, b) => {
-        if (b.hitRate !== a.hitRate) return b.hitRate - a.hitRate;
-        return b.totalCorrect - a.totalCorrect;
+        if (b.points !== a.points) return b.points - a.points;
+        return b.hitRate - a.hitRate;
       })
       .slice(0, limit)
       .map((item, index) => ({
