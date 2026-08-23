@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { EnadeQuestionFull, getRandomFullQuestions } from '@/lib/enade-full-bank';
+import { loadDbQuestionsIntoBank } from '@/lib/fetch-db-questions';
 // Keep backward-compatible type alias
 export type EnadeQuestion = EnadeQuestionFull;
 
@@ -69,6 +70,10 @@ interface AppState {
   setPanel: (panel: PanelType) => void;
   restoreSession: () => Promise<void>;
 
+  // DB-backed question bank
+  dbQuestionsReady: boolean;
+  loadDbQuestions: (token: string) => Promise<void>;
+
   // Methods for quiz
   startQuiz: (topic?: string, difficulty?: string, count?: number) => void;
   answerQuestion: (questionId: string, answer: string) => void;
@@ -89,6 +94,7 @@ export const useAppStore = create<AppState>()(
       token: null,
       isLoading: true,
       currentPanel: 'student',
+      dbQuestionsReady: false,
 
       // View navigation
       currentView: 'chat',
@@ -118,12 +124,19 @@ export const useAppStore = create<AppState>()(
       chatPreFilledQuestion: null,
       setChatPreFilledQuestion: (question) => set({ chatPreFilledQuestion: question }),
 
+      // DB-backed question bank
+      loadDbQuestions: async (token) => {
+        await loadDbQuestionsIntoBank(token);
+        set({ dbQuestionsReady: true });
+      },
+
       // Auth methods
       login: (user, token) => {
         set({ user, token, isLoading: false });
         if (typeof window !== 'undefined') {
           localStorage.setItem('enadia-token', token);
         }
+        get().loadDbQuestions(token);
       },
       logout: () => {
         set({ user: null, token: null, isLoading: false, currentPanel: 'student' });
@@ -150,6 +163,7 @@ export const useAppStore = create<AppState>()(
               // By default, everyone starts in student panel, and can use the sidebar button to access master/professor panels
               const panel = 'student';
               set({ user, token, isLoading: false, currentPanel: panel });
+              get().loadDbQuestions(token);
             } else {
               // Token invalid or expired — clear it
               localStorage.removeItem('enadia-token');
