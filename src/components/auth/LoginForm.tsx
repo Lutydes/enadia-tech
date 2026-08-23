@@ -17,6 +17,7 @@ import {
   GraduationCap,
   BookOpen,
   CheckCircle2,
+  ArrowLeft,
 } from 'lucide-react';
 
 type TabType = 'login' | 'cadastro' | 'esqueceu';
@@ -25,6 +26,13 @@ type ModalidadeType = 'EAD' | 'PRESENCIAL' | 'SEMIPRESENCIAL';
 
 // Configurable branding via NEXT_PUBLIC_ env vars
 const APP_FOOTER = process.env.NEXT_PUBLIC_APP_FOOTER || 'EnadIA TECH';
+const APP_INSTANCE = process.env.NEXT_PUBLIC_APP_INSTANCE || 'ENADIA';
+
+// Cursos disponíveis por instância — cada site tem sua própria lista fixa
+const CURSO_OPTIONS: Record<string, string[]> = {
+  FECAP: ['CCOMP', 'ADS'],
+  UNIFECAF: ['GTI', 'ADS', 'ECO'],
+};
 
 export function LoginForm() {
   const { login, setPanel, setCurrentView } = useAppStore();
@@ -251,7 +259,17 @@ export function LoginForm() {
         className="relative z-10 w-full max-w-md mx-4"
       >
         {/* Glass Card */}
-        <div className="jarvis-card p-8 md:p-10">
+        <div className="jarvis-card p-8 md:p-10 relative">
+          {APP_INSTANCE === 'UNIFECAF' && (
+            <a
+              href="https://enadetech.netlify.app/"
+              className="absolute top-4 left-4 flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 font-mono tracking-wider transition-colors"
+            >
+              <ArrowLeft size={11} />
+              <span>ENADE TECH</span>
+            </a>
+          )}
+
           {/* Orb */}
           <div className="flex justify-center mb-6">
             <motion.div
@@ -574,15 +592,33 @@ export function LoginForm() {
                         Curso
                       </label>
                       <div className="relative">
-                        <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-500/40" size={16} />
-                        <Input
-                          type="text"
-                          value={regCurso}
-                          onChange={(e) => setRegCurso(e.target.value)}
-                          placeholder="Ex: Ciência da Computação"
-                          disabled={isLoading}
-                          className="pl-10 h-11 bg-[#0a0e17] border-cyan-500/20 text-white placeholder:text-slate-600 font-mono text-sm focus:border-cyan-500/50 focus:ring-cyan-500/20"
-                        />
+                        <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-500/40 pointer-events-none z-10" size={16} />
+                        {CURSO_OPTIONS[APP_INSTANCE] ? (
+                          <select
+                            value={regCurso}
+                            onChange={(e) => setRegCurso(e.target.value)}
+                            disabled={isLoading}
+                            className="w-full pl-10 h-11 rounded-md bg-[#0a0e17] border border-cyan-500/20 text-white font-mono text-sm focus:border-cyan-500/50 focus:ring-cyan-500/20 focus:outline-none appearance-none"
+                          >
+                            <option value="" disabled className="bg-[#0a0e17] text-slate-600">
+                              Selecione o curso
+                            </option>
+                            {CURSO_OPTIONS[APP_INSTANCE].map((curso) => (
+                              <option key={curso} value={curso} className="bg-[#0a0e17] text-white">
+                                {curso}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            type="text"
+                            value={regCurso}
+                            onChange={(e) => setRegCurso(e.target.value)}
+                            placeholder="Ex: Ciência da Computação"
+                            disabled={isLoading}
+                            className="pl-10 h-11 bg-[#0a0e17] border-cyan-500/20 text-white placeholder:text-slate-600 font-mono text-sm focus:border-cyan-500/50 focus:ring-cyan-500/20"
+                          />
+                        )}
                       </div>
                     </div>
 

@@ -12,7 +12,6 @@ import {
   X,
   Shield,
   LogOut,
-  ArrowLeft,
 } from 'lucide-react';
 import { useAppStore, ViewType } from '@/store/app-store';
 import { EnadIAOrb } from './EnadIAOrb';
@@ -22,7 +21,6 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'EnadIA';
 const APP_SUBTITLE = process.env.NEXT_PUBLIC_APP_SUBTITLE || 'ENADE Assistant';
 const APP_BRAND = process.env.NEXT_PUBLIC_APP_BRAND || 'EnadIA TECH';
 const APP_FOOTER = process.env.NEXT_PUBLIC_APP_FOOTER || 'EnadIA TECH';
-const APP_INSTANCE = process.env.NEXT_PUBLIC_APP_INSTANCE || 'ENADIA';
 
 interface NavItem {
   view: ViewType;
@@ -202,16 +200,6 @@ export function JarvisSidebar() {
               <LogOut size={14} />
               <span>Sair</span>
             </button>
-
-            {APP_INSTANCE === 'UNIFECAF' && (
-              <a
-                href="https://enadetech.netlify.app/"
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-all mt-1"
-              >
-                <ArrowLeft size={12} />
-                <span>Voltar para ENADE TECH</span>
-              </a>
-            )}
 
             <div className="flex items-center gap-2 text-xs text-slate-500 mt-3">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
