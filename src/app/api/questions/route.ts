@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth, requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     // Professors and masters can see all statuses; alunos only see ATIVA/INATIVA
     const authUser = requireAuth(request);
-    if (authUser.role === Role.ALUNO) {
+    if (authUser.role === 'ALUNO') {
       where.status = { in: ['ATIVA', 'INATIVA'] };
     } else if (!status) {
       // Don't filter by status for prof/master unless explicitly requested
@@ -72,7 +71,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authUser = requireRole(request, Role.PROFESSOR, Role.MASTER);
+    const authUser = requireRole(request, 'PROFESSOR', 'MASTER');
 
     const body = await request.json();
     const {

@@ -12,11 +12,19 @@ export async function POST(request: NextRequest) {
       return errorResponse('Email e senha são obrigatórios.', 400);
     }
 
-    const user = await db.user.findUnique({
-      where: { email },
+    const instance = process.env.APP_INSTANCE || 'ENADIA';
+
+    // Use findFirst with composite key (email, instance) instead of findUnique
+    const user = await db.user.findFirst({
+      where: { email, instance },
     });
 
     if (!user) {
+      return errorResponse('Credenciais inválidas.', 401);
+    }
+
+    // Cross-instance login check: user must belong to this instance
+    if (user.instance !== instance) {
       return errorResponse('Credenciais inválidas.', 401);
     }
 
@@ -39,6 +47,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       email: user.email,
       role: user.role,
+      instance: user.instance,
     });
 
     return jsonResponse({
@@ -54,6 +63,7 @@ export async function POST(request: NextRequest) {
         periodo: user.periodo,
         modalidade: user.modalidade,
         disciplina: user.disciplina,
+        instance: user.instance,
       },
       token,
     });

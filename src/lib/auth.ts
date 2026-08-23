@@ -7,6 +7,7 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
+  instance: string;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -18,7 +19,8 @@ export async function comparePassword(password: string, hash: string): Promise<b
 }
 
 export function generateToken(payload: TokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  const instance = payload.instance || process.env.APP_INSTANCE || 'ENADIA';
+  return jwt.sign({ ...payload, instance }, JWT_SECRET, { expiresIn: '7d' });
 }
 
 export function verifyToken(token: string): TokenPayload | null {

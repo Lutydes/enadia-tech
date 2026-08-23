@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { verifyToken, type TokenPayload } from './auth';
-import { Role } from '@prisma/client';
 
 export function getAuthUser(request: NextRequest): TokenPayload | null {
   const authHeader = request.headers.get('authorization');
@@ -11,6 +10,11 @@ export function getAuthUser(request: NextRequest): TokenPayload | null {
   return verifyToken(token);
 }
 
+export function getInstance(request: NextRequest): string {
+  const authUser = getAuthUser(request);
+  return authUser?.instance || process.env.APP_INSTANCE || 'ENADIA';
+}
+
 export function requireAuth(request: NextRequest): TokenPayload {
   const user = getAuthUser(request);
   if (!user) {
@@ -19,12 +23,12 @@ export function requireAuth(request: NextRequest): TokenPayload {
   return user;
 }
 
-export function requireRole(request: NextRequest, ...roles: Role[]): TokenPayload {
+export function requireRole(request: NextRequest, ...roles: string[]): TokenPayload {
   const user = getAuthUser(request);
   if (!user) {
     throw new AuthError('Não autenticado. Faça login para continuar.', 401);
   }
-  if (!roles.includes(user.role as Role)) {
+  if (!roles.includes(user.role)) {
     throw new AuthError('Acesso negado. Você não tem permissão para esta ação.', 403);
   }
   return user;

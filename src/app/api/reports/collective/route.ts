@@ -1,20 +1,21 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
-    requireRole(request, Role.MASTER, Role.PROFESSOR);
+    const authUser = requireRole(request, 'MASTER', 'PROFESSOR');
+    const instance = authUser.instance || process.env.APP_INSTANCE || 'ENADIA';
 
-    // Get all students
+    // Get all students for this instance
     const students = await db.user.findMany({
-      where: { role: Role.ALUNO },
+      where: { role: 'ALUNO', instance },
       select: { id: true, name: true, ra: true, createdAt: true },
     });
 
-    // Get all responses with question info
+    // Get all responses with question info, filtered by instance
     const allResponses = await db.studentResponse.findMany({
+      where: { instance },
       select: {
         userId: true,
         isCorrect: true,
@@ -29,7 +30,11 @@ export async function GET(request: NextRequest) {
     });
 
     // Group by student
-    const studentReports = [];
+    const studentReports: Array<{
+      user: { id: string; name: string; ra: string | null; createdAt: Date };
+      overview: { total: number; correct: number; hitRate: number };
+      byMicroarea: Array<{ total: number; correct: number; name: string; code: string; color: string; hitRate: number }>;
+    }> = [];
     for (const student of students) {
       const studentResponses = allResponses.filter((r) => r.userId === student.id);
       const total = studentResponses.length;

@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
 import { requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role, Modalidade } from '@prisma/client';
 
 /**
  * POST /api/auth/users/csv-import
@@ -26,7 +25,8 @@ import { Role, Modalidade } from '@prisma/client';
  */
 export async function POST(request: NextRequest) {
   try {
-    requireRole(request, Role.MASTER);
+    const authUser = requireRole(request, 'MASTER');
+    const instance = authUser.instance || process.env.APP_INSTANCE || 'ENADIA';
 
     const body = await request.json();
     const { role, format, data, defaultPassword } = body;
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       return errorResponse('Dados são obrigatórios (data).', 400);
     }
 
-    const userRole = role as Role;
+    const userRole = role as string;
     let items: Array<Record<string, string>> = [];
 
     if (format === 'csv' || typeof data === 'string') {
@@ -112,17 +112,17 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Check duplicate email
-        const existingEmail = await db.user.findUnique({ where: { email: item.email } });
+        // Check duplicate email within this instance
+        const existingEmail = await db.user.findFirst({ where: { email: item.email, instance } });
         if (existingEmail) {
           results.errors++;
           results.errorDetails.push({ row: i + 1, name: item.name, error: `Email já existe: ${item.email}` });
           continue;
         }
 
-        // Check duplicate RA
+        // Check duplicate RA within this instance
         if (item.ra) {
-          const existingRa = await db.user.findUnique({ where: { ra: item.ra } });
+          const existingRa = await db.user.findFirst({ where: { ra: item.ra, instance } });
           if (existingRa) {
             results.errors++;
             results.errorDetails.push({ row: i + 1, name: item.name, error: `RA já existe: ${item.ra}` });
@@ -138,19 +138,20 @@ export async function POST(request: NextRequest) {
           password: hashedPassword,
           role: userRole,
           ra: item.ra || null,
+          instance,
           active: true,
         };
 
-        if (userRole === Role.ALUNO) {
+        if (userRole === 'ALUNO') {
           createData.curso = item.curso || null;
           createData.periodo = item.periodo ? parseInt(item.periodo) : null;
           const mod = (item.modalidade || 'PRESENCIAL').toUpperCase();
-          createData.modalidade = Object.values(Modalidade).includes(mod as Modalidade) 
-            ? mod 
-            : Modalidade.PRESENCIAL;
+          createData.modalidade = ['EAD', 'PRESENCIAL', 'SEMIPRESENCIAL'].includes(mod)
+            ? mod
+            : 'PRESENCIAL';
         }
 
-        if (userRole === Role.PROFESSOR) {
+        if (userRole === 'PROFESSOR') {
           createData.disciplina = item.disciplina || null;
         }
 

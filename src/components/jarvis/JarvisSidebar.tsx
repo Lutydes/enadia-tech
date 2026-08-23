@@ -16,15 +16,20 @@ import {
 import { useAppStore, ViewType } from '@/store/app-store';
 import { EnadIAOrb } from './EnadIAOrb';
 
+// Configurable branding via NEXT_PUBLIC_ env vars
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'EnadIA';
+const APP_SUBTITLE = process.env.NEXT_PUBLIC_APP_SUBTITLE || 'ENADE Assistant';
+const APP_BRAND = process.env.NEXT_PUBLIC_APP_BRAND || 'EnadIA TECH';
+const APP_FOOTER = process.env.NEXT_PUBLIC_APP_FOOTER || 'EnadIA TECH';
+
 interface NavItem {
   view: ViewType;
   label: string;
   icon: React.ReactNode;
 }
 
-// All nav items always available – no phase lock
 const navItems: NavItem[] = [
-  { view: 'chat', label: 'Chat EnadIA', icon: <MessageSquare size={18} /> },
+  { view: 'chat', label: `Chat ${APP_NAME}`, icon: <MessageSquare size={18} /> },
   { view: 'simulado', label: 'Simulado ENADE', icon: <FileQuestion size={18} /> },
   { view: 'revisao', label: 'Revisão por Tema', icon: <BookOpen size={18} /> },
   { view: 'dashboard', label: 'Dashboard', icon: <BarChart3 size={18} /> },
@@ -80,14 +85,14 @@ export function JarvisSidebar() {
           <div className="p-6 flex flex-col items-center gap-3">
             <EnadIAOrb size="xl" />
             <div className="text-center">
-              <h1 className="text-xl font-bold jarvis-glow tracking-[0.3em]">EnadIA</h1>
+              <h1 className="text-xl font-bold jarvis-glow tracking-[0.3em]">{APP_NAME}</h1>
               <p className="text-[10px] text-cyan-400/60 font-mono tracking-widest uppercase">
-                ENADE Assistant
+                {APP_SUBTITLE}
               </p>
             </div>
           </div>
 
-          {/* TECH Badge */}
+          {/* Brand Badge */}
           <div className="px-4 mb-2">
             <div
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-center justify-center"
@@ -104,7 +109,7 @@ export function JarvisSidebar() {
                 className="text-[10px] font-bold uppercase tracking-wider"
                 style={{ color: '#00f0ff' }}
               >
-                EnadIA TECH
+                {APP_BRAND}
               </span>
             </div>
           </div>
@@ -112,7 +117,7 @@ export function JarvisSidebar() {
           {/* Divider */}
           <div className="mx-4 h-px bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent" />
 
-          {/* B. Navigation – all items always unlocked */}
+          {/* Navigation */}
           <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
             {navItems.map((item) => {
               const isActive = currentView === item.view;
@@ -147,9 +152,8 @@ export function JarvisSidebar() {
             })}
           </nav>
 
-          {/* C. User info section at bottom */}
+          {/* User info section at bottom */}
           <div className="p-4 border-t border-[#1e293b]">
-            {/* User info */}
             {user && (
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center flex-shrink-0">
@@ -179,7 +183,6 @@ export function JarvisSidebar() {
               </div>
             )}
 
-            {/* Admin panel button */}
             {isAdmin && (
               <button
                 onClick={() => setPanel(user?.role === 'MASTER' ? 'master' : 'professor')}
@@ -190,7 +193,6 @@ export function JarvisSidebar() {
               </button>
             )}
 
-            {/* Logout button */}
             <button
               onClick={logout}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-red-400/70 hover:text-red-400 hover:bg-red-500/5 transition-all"
@@ -199,13 +201,15 @@ export function JarvisSidebar() {
               <span>Sair</span>
             </button>
 
-            {/* System status */}
             <div className="flex items-center gap-2 text-xs text-slate-500 mt-3">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="font-mono">System Online</span>
             </div>
             <p className="text-[10px] text-slate-600 mt-1 font-mono">
               v2.0.0 • ENADE 2026
+            </p>
+            <p className="text-[9px] text-slate-700 mt-1">
+              {APP_FOOTER}
             </p>
           </div>
         </div>

@@ -221,9 +221,13 @@ export function SimuladoEnade() {
   }, [isTimerRunning, timeRemaining, finishQuiz]);
 
   // Save response to API
+  // FIX: Now sends correctAnswer, topic, macroarea, difficulty so the API
+  // can save responses for local bank questions (which don't exist in the DB)
   const saveResponseToAPI = useCallback(async (questionId: string, answer: string, responseTime: number) => {
     if (!token) return;
     try {
+      // Find the question from the current quiz to get metadata
+      const question = quizQuestions.find(q => q.id === questionId);
       await fetch('/api/responses', {
         method: 'POST',
         headers: {
@@ -234,12 +238,17 @@ export function SimuladoEnade() {
           questionId,
           answer,
           responseTime: Math.round(responseTime / 1000), // convert ms to seconds
+          // Extra fields for local bank questions (FIX for ranking/progress)
+          correctAnswer: question?.correctAnswer,
+          topic: question?.topic,
+          macroarea: question?.macroarea,
+          difficulty: question?.difficulty,
         }),
       });
-    } catch {
-      // Silently fail - local state already handles it
+    } catch (e) {
+      console.error('Failed to save response to API:', e);
     }
-  }, [token]);
+  }, [token, quizQuestions]);
 
   // Pick 1-2 essay questions when a simulado starts
   const pickEssayQuestions = useCallback((): EssayQuestion[] => {

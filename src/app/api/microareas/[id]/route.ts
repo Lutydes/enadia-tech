@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function GET(
   request: NextRequest,
@@ -45,7 +44,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    requireRole(request, Role.MASTER);
+    requireRole(request, 'MASTER');
     const { id } = await params;
 
     const existing = await db.microarea.findUnique({ where: { id } });
@@ -100,7 +99,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    requireRole(request, Role.MASTER);
+    requireRole(request, 'MASTER');
     const { id } = await params;
 
     const existing = await db.microarea.findUnique({ where: { id } });

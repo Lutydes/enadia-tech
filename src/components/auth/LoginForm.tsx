@@ -23,6 +23,9 @@ type TabType = 'login' | 'cadastro' | 'esqueceu';
 type RoleType = 'ALUNO' | 'PROFESSOR';
 type ModalidadeType = 'EAD' | 'PRESENCIAL' | 'SEMIPRESENCIAL';
 
+// Configurable branding via NEXT_PUBLIC_ env vars
+const APP_FOOTER = process.env.NEXT_PUBLIC_APP_FOOTER || 'EnadIA TECH';
+
 export function LoginForm() {
   const { login, setPanel, setCurrentView } = useAppStore();
 
@@ -813,7 +816,7 @@ export function LoginForm() {
             className="mt-8 pt-6 border-t border-cyan-500/10 text-center"
           >
             <p className="text-[11px] text-slate-600 font-mono">
-              EnadIA TECH — ENADE 2026
+              {APP_FOOTER} — ENADE 2026
             </p>
           </motion.div>
         </div>

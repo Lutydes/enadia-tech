@@ -1,408 +1,146 @@
-# 🚀 Guia Completo: EnadIA TECH → Supabase + Netlify
+# 🚀 Guia de Deploy — EnadIA (Netlify + Supabase)
 
-## Índice
-1. [Configurando o Supabase](#1-configurando-o-supabase)
-2. [Migrando o Banco de Dados](#2-migrando-o-banco-de-dados)
-3. [Importando Alunos e Professores via CSV](#3-importando-alunos-e-professores-via-csv)
-4. [Deploy no Netlify](#4-deploy-no-netlify)
-5. [Variáveis de Ambiente](#5-variáveis-de-ambiente)
-6. [Resolução de Problemas](#6-resolução-de-problemas)
+## Arquitetura
 
----
-
-## 1. Configurando o Supabase
-
-### Passo 1: Criar conta e projeto
-1. Acesse [https://supabase.com](https://supabase.com)
-2. Clique em **Start your project** e crie uma conta (pode usar GitHub)
-3. Clique em **New Project**
-4. Preencha:
-   - **Name**: `enadia-tech`
-   - **Database Password**: Crie uma senha forte (guarde bem!)
-   - **Region**: Escolha a mais próxima (ex: South America - São Paulo)
-5. Aguarde o projeto ser criado (~2 minutos)
-
-### Passo 2: Obter as credenciais
-1. No painel do Supabase, vá em **Settings** → **Database**
-2. Role até **Connection string**
-3. Copie a **URI** do PostgreSQL
-
-Você precisará de DUAS URLs:
-
-**Pooler URL** (para a aplicação - recomendada para serverless/Netlify):
 ```
-postgresql://postgres.[PROJECT_REF]:[SUA_SENHA]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
-```
-
-**Direct URL** (para Prisma Migrations):
-```
-postgresql://postgres.[PROJECT_REF]:[SUA_SENHA]@aws-0-sa-east-1.supabase.com:5432/postgres
-```
-
-### Passo 3: Configurar o .env
-Crie um arquivo `.env.local` na raiz do projeto:
-
-```env
-DATABASE_URL="postgresql://postgres.[PROJECT_REF]:[SUA_SENHA]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
-DIRECT_URL="postgresql://postgres.[PROJECT_REF]:[SUA_SENHA]@aws-0-sa-east-1.supabase.com:5432/postgres"
-JWT_SECRET="gere-uma-chave-com-openssl-rand-hex-32"
-```
-
-Para gerar o JWT_SECRET:
-```bash
-openssl rand -hex 32
-```
-
-### Passo 4: Obter a Anon Key (para o painel)
-1. No Supabase, vá em **Settings** → **API**
-2. Copie a **anon public** key
-3. Esta key NÃO é usada pelo código atual (usamos JWT próprio), mas pode ser útil futuramente
-
----
-
-## 2. Migrando o Banco de Dados
-
-### Opção A: Migração do Zero (Recomendado para produção)
-
-Se você quer começar limpo no Supabase com apenas os dados essenciais:
-
-```bash
-# 1. Certifique-se que o .env aponta para o Supabase
-cat .env.local
-
-# 2. Gere o Prisma Client para PostgreSQL
-bunx prisma generate
-
-# 3. Crie as tabelas no Supabase
-bunx prisma db push
-
-# 4. Execute o seed para criar usuários padrão
-bun run prisma/seed.ts
-```
-
-Usuários criados pelo seed:
-| Role | Email | Senha |
-|------|-------|-------|
-| MASTER | master@seuemail.com.br | master123 |
-| PROFESSOR | professor@seuemail.com.br | prof123 |
-| ALUNO | aluno@seuemail.com.br | aluno123 |
-
-⚠️ **TROQUE AS SENHAS PADRÃO** após o primeiro login!
-
-### Opção B: Migrar dados do SQLite existente
-
-Se você tem dados no SQLite local que quer preservar:
-
-```bash
-# 1. Com o .env apontando para o SQLite, exporte os dados
-bun run scripts/migrate-to-supabase.ts export
-
-# 2. Troque o .env para o Supabase
-# (edite .env.local com as URLs do Supabase)
-
-# 3. Gere o Prisma Client e crie as tabelas
-bunx prisma generate
-bunx prisma db push
-
-# 4. Importe os dados para o Supabase
-bun run scripts/migrate-to-supabase.ts import
-```
-
-### Após a migração: Semear as questões
-
-Para popular o banco com as questões ENADE:
-
-```bash
-bun run prisma/seed-questions.ts
+┌───────────────────────────────────────────────────────┐
+│                  SUPABASE (1 banco)                   │
+│                                                        │
+│  📋 Questões, Microareas, Elements  ← COMPARTILHADAS  │
+│  👥 Users (coluna "instance")         ← ISOLADAS      │
+│  📊 Responses (referenciam user)      ← ISOLADAS      │
+│  🏆 Ranking (calculado por instance)  ← ISOLADAS      │
+│                                                        │
+│  instance = 'ENADIA'  → Site 1                            │
+│  instance = 'FECAP'   → Site 2                            │
+└───────────────────────────────────────────────────────┘
+         │                            │
+    ┌────▼─────┐              ┌──────▼─────┐
+    │ NETLIFY  │              │  NETLIFY   │
+    │ Site 1   │              │  Site 2    │
+    │ EnadIA   │              │  EnadIA    │
+    │ TECH     │              │  FECAP     │
+    └──────────┘              └────────────┘
 ```
 
 ---
 
-## 3. Importando Alunos e Professores via CSV
+## PASSO 0 — Trocar o Prisma Schema para PostgreSQL
 
-### Formato CSV para Alunos
-
-O CSV deve ter o formato:
-```
-nome,email,ra,curso,periodo,modalidade,senha
-João Silva,joao.silva@seuemail.com.br,2024001,Ciência da Computação,6,PRESENCIAL,joao123
-```
-
-| Campo | Obrigatório | Descrição |
-|-------|------------|-----------|
-| nome | ✅ | Nome completo |
-| email | ✅ | Email institucional (único) |
-| ra | ✅ | Registro Acadêmico (único) |
-| curso | ✅ | Nome do curso |
-| periodo | ✅ | Número do período (1-10) |
-| modalidade | ❌ | EAD, PRESENCIAL ou SEMIPRESENCIAL (padrão: PRESENCIAL) |
-| senha | ❌ | Senha inicial (padrão: enadia123) |
-
-### Formato CSV para Professores
-
-```
-nome,email,ra,disciplina,senha
-Prof. Dr. Carlos,carlos@seuemail.com.br,PROF001,Engenharia de Software,prof123
-```
-
-| Campo | Obrigatório | Descrição |
-|-------|------------|-----------|
-| nome | ✅ | Nome completo |
-| email | ✅ | Email institucional (único) |
-| ra | ✅ | Registro (único) |
-| disciplina | ✅ | Disciplina que leciona |
-| senha | ❌ | Senha inicial (padrão: enadia123) |
-
-### Como Importar
-
-#### Opção 1: Pelo Painel Master (Interface Web)
-
-1. Faça login como MASTER (master@seuemail.com.br)
-2. Vá na aba **Alunos** ou **Docentes**
-3. Clique em **Importar CSV**
-4. Cole o conteúdo do CSV ou use o template
-5. Clique em **Importar**
-
-#### Opção 2: Via API (curl)
-
-**Importar Alunos:**
-```bash
-curl -X POST https://seudominio.com/api/auth/users/csv-import \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer SEU_TOKEN_MASTER" \
-  -d '{
-    "role": "ALUNO",
-    "format": "csv",
-    "data": "nome,email,ra,curso,periodo,modalidade,senha\nJoão Silva,joao@seuemail.com.br,2024001,Ciência da Computação,6,PRESENCIAL,joao123",
-    "defaultPassword": "enadia123"
-  }'
-```
-
-**Importar Professores:**
-```bash
-curl -X POST https://seudominio.com/api/auth/users/csv-import \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer SEU_TOKEN_MASTER" \
-  -d '{
-    "role": "PROFESSOR",
-    "format": "csv",
-    "data": "nome,email,ra,disciplina,senha\nProf. Carlos,carlos@seuemail.com.br,PROF001,Engenharia de Software,prof123"
-  }'
-```
-
-#### Opção 3: Via JSON (array)
+Antes de fazer deploy, é preciso trocar o schema do Prisma:
 
 ```bash
-curl -X POST https://seudominio.com/api/auth/users/csv-import \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer SEU_TOKEN_MASTER" \
-  -d '{
-    "role": "ALUNO",
-    "data": [
-      {"name": "João Silva", "email": "joao@seuemail.com.br", "ra": "2024001", "curso": "Ciência da Computação", "periodo": "6", "modalidade": "PRESENCIAL", "senha": "joao123"},
-      {"name": "Ana Oliveira", "email": "ana@seuemail.com.br", "ra": "2024002", "curso": "Sistemas de Informação", "periodo": "4", "senha": "ana123"}
-    ]
-  }'
+# O projeto tem 2 schemas Prisma:
+#   prisma/schema.prisma          → SQLite (desenvolvimento local)
+#   prisma/schema.supabase.prisma → PostgreSQL (deploy Supabase)
+
+cp prisma/schema.supabase.prisma prisma/schema.prisma
 ```
 
-### Dicas para CSV Grande
-
-- Se o CSV tiver **cabeçalho** (nome,email,ra...), ele será detectado automaticamente
-- Emails e RAs duplicados são **ignorados** (não causam erro)
-- Se não incluir a coluna **senha**, todos receberão a senha padrão `enadia123`
-- Use `defaultPassword` para definir uma senha padrão diferente
-- O resultado inclui: sucesso, erros e detalhes de cada erro
+Faça isso **antes** do commit que vai para o Netlify.
 
 ---
 
-## 4. Deploy no Netlify
+## PASSO 1 — Criar o projeto no Supabase
 
-### Pré-requisitos
-- Conta no [Netlify](https://netlify.com) (pode usar GitHub para login)
-- Código no GitHub (recomendado) ou deploy manual
+1. Acesse [supabase.com](https://supabase.com) e crie um novo projeto
+2. Anote a **senha** do banco (você vai precisar)
+3. Vá em **Settings → Database → Connection string → URI**
+4. Copie as strings de conexão (pooler e direta)
 
-### Opção A: Deploy via GitHub (Recomendado)
+## PASSO 2 — Executar o Schema SQL
 
-#### Passo 1: Subir o código para o GitHub
+1. No Supabase, vá em **SQL Editor**
+2. Abra o arquivo `supabase/migration.sql` do projeto
+3. Cole todo o conteúdo e clique em **Run**
+4. Isso cria todas as tabelas, índices e views
+
+## PASSO 3 — Criar os 2 sites no Netlify
+
+### Site 1: EnadIA TECH
+1. Faça login em [netlify.com](https://netlify.com)
+2. **Add new site → Import an existing project → GitHub**
+3. Conecte seu repositório
+4. Configure as variáveis de ambiente (veja abaixo)
+5. Deploy
+
+### Site 2: EnadIA FECAP
+1. **Add new site → Import an existing project → GitHub** (mesmo repo!)
+2. Mesmo branch
+3. Configure as variáveis de ambiente DIFERENTES (veja abaixo)
+4. Deploy
+
+---
+
+## Variáveis de Ambiente (Netlify → Site Settings → Environment Variables)
+
+### Comum a ambos os sites:
+| Variável | Exemplo | Descrição |
+|----------|---------|------------|
+| `DATABASE_URL` | `postgresql://postgres.xxx...` | Connection string via pooler |
+| `DIRECT_URL` | `postgresql://postgres.xxx...` | Connection string direta |
+| `JWT_SECRET` | `sua-chave-super-secreta` | **USE CHAVES DIFERENTES** para cada site |
+| `GROQ_API_KEY` | `gsk_...` | Chave da API do Groq (console.groq.com/keys) — pode ser a **mesma** para os 2 sites, ou uma para cada se quiser limites separados |
+
+### Site 1 — EnadIA TECH:
+| Variável | Valor |
+|----------|-------|
+| `APP_INSTANCE` | `ENADIA` |
+| `NEXT_PUBLIC_APP_NAME` | `EnadIA` |
+| `NEXT_PUBLIC_APP_SUBTITLE` | `ENADE Assistant` |
+| `NEXT_PUBLIC_APP_BRAND` | `EnadIA TECH` |
+| `NEXT_PUBLIC_APP_FOOTER` | `EnadIA TECH` |
+
+### Site 2 — EnadIA FECAP:
+| Variável | Valor |
+|----------|-------|
+| `APP_INSTANCE` | `FECAP` |
+| `NEXT_PUBLIC_APP_NAME` | `EnadIA` |
+| `NEXT_PUBLIC_APP_SUBTITLE` | `ENADE Assistant` |
+| `NEXT_PUBLIC_APP_BRAND` | `Centro Universitário FECAP` |
+| `NEXT_PUBLIC_APP_FOOTER` | `Centro Universitário FECAP` |
+
+---
+
+## PASSO 4 — Gerar o Prisma Client (primeiro deploy)
+
+No terminal local, antes de fazer push:
 
 ```bash
-# Inicializar git (se ainda não tiver)
-git init
-git add .
-git commit -m "EnadIA TECH - versão Supabase"
+# Instalar dependências
+npm install
 
-# Criar repositório no GitHub e fazer push
-git remote add origin https://github.com/SEU_USER/enadia-tech.git
-git push -u origin main
-```
+# Gerar o Prisma Client para PostgreSQL
+npx prisma generate
 
-⚠️ **NÃO suba** o `.env.local` ou `db/` para o GitHub! Adicione ao `.gitignore`:
-```
-.env.local
-.env
-db/
-migration-data.json
-```
-
-#### Passo 2: Configurar no Netlify
-
-1. Acesse [https://app.netlify.com](https://app.netlify.com)
-2. Clique em **Add new site** → **Import an existing project**
-3. Conecte ao GitHub e selecione o repositório `enadia-tech`
-4. Configure o build:
-   - **Build command**: `npm run build`
-   - **Publish directory**: `.next`
-5. Clique em **Show advanced** e adicione as variáveis de ambiente:
-
-| Key | Value |
-|-----|-------|
-| `DATABASE_URL` | `postgresql://postgres.REF:SENHA@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true` |
-| `DIRECT_URL` | `postgresql://postgres.REF:SENHA@aws-0-sa-east-1.supabase.com:5432/postgres` |
-| `JWT_SECRET` | Sua chave secreta gerada com `openssl rand -hex 32` |
-
-6. Clique em **Deploy site**
-
-#### Passo 3: Instalar plugin do Next.js
-
-O Netlify tem um plugin oficial para Next.js que é instalado automaticamente.
-Se não for, adicione ao `netlify.toml`:
-
-```toml
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-```
-
-### Opção B: Deploy Manual (CLI)
-
-```bash
-# Instalar Netlify CLI
-npm install -g netlify-cli
-
-# Fazer login
-netlify login
-
-# Build do projeto
-npm run build
-
-# Deploy
-netlify deploy --prod --dir=.next
-
-# Ou deploy de preview
-netlify deploy --dir=.next
-```
-
-### Configuração do netlify.toml
-
-Crie um arquivo `netlify.toml` na raiz do projeto:
-
-```toml
-[build]
-  command = "npm run build"
-  publish = ".next"
-
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
-[context.production.environment]
-  NODE_ENV = "production"
+# (Opcional) Testar localmente com:
+# cp .env.example .env.local
+# (preencha com suas credenciais Supabase)
+# npx prisma db push
+# npm run dev
 ```
 
 ---
 
-## 5. Variáveis de Ambiente
+## Como funciona o isolamento
 
-### Para Desenvolvimento Local (`.env.local`)
-
-```env
-DATABASE_URL="postgresql://postgres.[REF]:[SENHA]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
-DIRECT_URL="postgresql://postgres.[REF]:[SENHA]@aws-0-sa-east-1.supabase.com:5432/postgres"
-JWT_SECRET="sua-chave-secreta-gerada-com-openssl"
-```
-
-### Para Netlify (Settings → Environment variables)
-
-As mesmas variáveis acima, configuradas no painel do Netlify.
-
-### Para Produção (Após Deploy)
-
-⚠️ **IMPORTANTE**: Troque as senhas padrão!
-1. Faça login como MASTER
-2. Edite a senha do usuário master
-3. Peça para professores e alunos trocarem suas senhas
+- Quando um aluno se cadastra, a coluna `instance` recebe `APP_INSTANCE` (ex: `FECAP`)
+- O token JWT inclui o `instance` do usuário
+- Todas as queries de ranking, dashboard e relatórios filtram por `instance`
+- Um aluno do site FECAP **nunca** aparece no ranking do site ENADIA
+- Questões e microáreas são **compartilhadas** entre os dois sites
 
 ---
 
-## 6. Resolução de Problemas
+## Estrutura de Connection String do Supabase
 
-### Erro: "P1001: Can't reach database server"
-- Verifique se as URLs do Supabase estão corretas
-- Confirme se o projeto Supabase está ativo (não pausado)
-- Teste a conexão: `bunx prisma db pull` (deve conectar sem erro)
+```
+# Pooler (para queries normais - adiciona ?pgbouncer=true)
+DATABASE_URL="postgresql://postgres.PROJETO_ID:[SENHA]@aws-1-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
 
-### Erro: "JWT_SECRET não definido"
-- Certifique-se de que a variável `JWT_SECRET` está no `.env.local` ou no Netlify
-- Reinicie o servidor de desenvolvimento após alterar o `.env.local`
-
-### Erro: "Role MASTER não encontrado"
-- Execute o seed: `bun run prisma/seed.ts`
-- Verifique se o banco Supabase tem a tabela User com dados
-
-### Erro no Netlify: "Build failed"
-- Verifique se as variáveis de ambiente estão configuradas no Netlify
-- Confirme se o `DATABASE_URL` usa a URL com `?pgbouncer=true` (pooler)
-- Confirme se o `DIRECT_URL` NÃO tem `?pgbouncer=true`
-
-### Erro de CORS no Netlify
-- O Next.js no Netlify deve lidar com CORS automaticamente
-- Se necessário, adicione headers no `netlify.toml`:
-```toml
-[[headers]]
-  for = "/api/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization"
+# Direta (para migrações - SEM pgbouncer)
+DIRECT_URL="postgresql://postgres.PROJETO_ID:[SENHA]@aws-1-south-1.pooler.supabase.com:5432/postgres"
 ```
 
-### Erro: "Prisma Client could not be generated"
-```bash
-# Regenerate o client
-bunx prisma generate
-
-# Se persistir, limpe e reinstale
-rm -rf node_modules/.prisma
-bunx prisma generate
-```
-
-### Dica: Monitorar o Supabase
-- No painel do Supabase, vá em **Logs** → **Postgres** para ver queries
-- Vá em **Database** → **Replication** para monitorar performance
-- Vá em **Settings** → **Database** → **Connection pooling** para configurar pool
-
----
-
-## Resumo Rápido
-
-```bash
-# 1. Configurar .env.local com URLs do Supabase
-# 2. Gerar Prisma Client
-bunx prisma generate
-
-# 3. Criar tabelas no Supabase
-bunx prisma db push
-
-# 4. Semear dados iniciais
-bun run prisma/seed.ts
-bun run prisma/seed-questions.ts
-
-# 5. Testar localmente
-bun run dev
-
-# 6. Fazer deploy
-# - Push para GitHub → Netlify detecta e faz deploy automático
-# - OU: netlify deploy --prod
-```
-
----
-
-**EnadIA TECH** — ENADE 2026 🎓
+> ⚠️ Substitua `PROJETO_ID` e `[SENHA]` pelos valores reais do seu Supabase.
+> A região pode variar (south-1, east-1, etc).

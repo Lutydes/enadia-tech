@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth, requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function GET(
   request: NextRequest,
@@ -10,14 +9,15 @@ export async function GET(
   try {
     const authUser = requireAuth(request);
     const { userId } = await params;
+    const instance = authUser.instance || process.env.APP_INSTANCE || 'ENADIA';
 
     // Students can only see their own essays; masters/professors can see any
-    if (authUser.role === Role.ALUNO && authUser.userId !== userId) {
+    if (authUser.role === 'ALUNO' && authUser.userId !== userId) {
       return errorResponse('Acesso negado.', 403);
     }
 
     const essays = await db.essayAnswer.findMany({
-      where: { userId },
+      where: { userId, instance },
       select: {
         id: true,
         answer: true,

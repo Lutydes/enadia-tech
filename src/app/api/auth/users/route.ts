@@ -2,20 +2,20 @@ import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
 import { requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
-    requireRole(request, Role.MASTER);
+    const authUser = requireRole(request, 'MASTER');
+    const instance = authUser.instance || process.env.APP_INSTANCE || 'ENADIA';
 
     const { searchParams } = new URL(request.url);
-    const roleFilter = searchParams.get('role') as Role | null;
+    const roleFilter = searchParams.get('role') as string | null;
     const search = searchParams.get('search');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
 
-    const where: Record<string, unknown> = {};
-    if (roleFilter && Object.values(Role).includes(roleFilter)) {
+    const where: Record<string, unknown> = { instance };
+    if (roleFilter && ['ALUNO', 'PROFESSOR', 'MASTER'].includes(roleFilter)) {
       where.role = roleFilter;
     }
     if (search) {
@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
           disciplina: true,
           lastLogin: true,
           createdAt: true,
+          instance: true,
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
@@ -74,7 +75,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    requireRole(request, Role.MASTER);
+    const authUser = requireRole(request, 'MASTER');
+    const instance = authUser.instance || process.env.APP_INSTANCE || 'ENADIA';
 
     const body = await request.json();
     const { email, name, password, role, ra, curso, periodo, modalidade, disciplina } = body;
@@ -83,20 +85,20 @@ export async function POST(request: NextRequest) {
       return errorResponse('Email, nome e senha são obrigatórios.', 400);
     }
 
-    const existing = await db.user.findUnique({ where: { email } });
+    const existing = await db.user.findFirst({ where: { email, instance } });
     if (existing) {
       return errorResponse('Já existe um usuário com este email.', 409);
     }
 
     if (ra) {
-      const existingRa = await db.user.findUnique({ where: { ra } });
+      const existingRa = await db.user.findFirst({ where: { ra, instance } });
       if (existingRa) {
         return errorResponse('Já existe um usuário com este RA.', 409);
       }
     }
 
     const hashedPassword = await hashPassword(password);
-    const userRole = role || Role.ALUNO;
+    const userRole = role || 'ALUNO';
     const user = await db.user.create({
       data: {
         email,
@@ -104,10 +106,11 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         role: userRole,
         ra: ra || null,
-        curso: userRole === Role.ALUNO ? (curso || null) : null,
-        periodo: userRole === Role.ALUNO ? (periodo ? parseInt(String(periodo)) : null) : null,
-        modalidade: userRole === Role.ALUNO ? (modalidade || 'PRESENCIAL') : null,
-        disciplina: userRole === Role.PROFESSOR ? (disciplina || null) : null,
+        instance,
+        curso: userRole === 'ALUNO' ? (curso || null) : null,
+        periodo: userRole === 'ALUNO' ? (periodo ? parseInt(String(periodo)) : null) : null,
+        modalidade: userRole === 'ALUNO' ? (modalidade || 'PRESENCIAL') : null,
+        disciplina: userRole === 'PROFESSOR' ? (disciplina || null) : null,
       },
       select: {
         id: true,
@@ -122,6 +125,7 @@ export async function POST(request: NextRequest) {
         modalidade: true,
         disciplina: true,
         createdAt: true,
+        instance: true,
       },
     });
 
