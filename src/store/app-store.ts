@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { EnadeQuestionFull, getRandomFullQuestions } from '@/lib/enade-full-bank';
 import { loadDbQuestionsIntoBank } from '@/lib/fetch-db-questions';
+import { EssayQuestion, pickEssayQuestions } from '@/lib/essay-questions';
 // Keep backward-compatible type alias
 export type EnadeQuestion = EnadeQuestionFull;
 
@@ -46,6 +47,12 @@ interface AppState {
   selectedTopic: string;
   selectedDifficulty: string;
   selectedCount: number;
+
+  // Essay (dissertativa) questions for the current simulado attempt.
+  // Lives in the store (not component state) so it survives the
+  // SimuladoEnade view being unmounted/remounted (e.g. navigating to
+  // the chat to ask about a question and coming back).
+  essayQuestions: EssayQuestion[];
 
   // Stats
   totalAnswered: number;
@@ -113,6 +120,7 @@ export const useAppStore = create<AppState>()(
       selectedTopic: 'Todos',
       selectedDifficulty: 'Todos',
       selectedCount: 10,
+      essayQuestions: [],
 
       // Stats
       totalAnswered: 0,
@@ -195,6 +203,7 @@ export const useAppStore = create<AppState>()(
           selectedTopic: topic || get().selectedTopic,
           selectedDifficulty: difficulty || get().selectedDifficulty,
           selectedCount: count || get().selectedCount,
+          essayQuestions: pickEssayQuestions(2),
         });
       },
 
@@ -252,6 +261,7 @@ export const useAppStore = create<AppState>()(
           quizCompleted: false,
           quizStartTime: null,
           quizEndTime: null,
+          essayQuestions: [],
         });
       },
 

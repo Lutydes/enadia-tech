@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { groqChatCompletion } from '@/lib/groq';
 
+// Groq completions can take longer than the platform's default function
+// timeout; request the longest duration the hosting plan allows.
+export const maxDuration = 60;
+
 // =============================================================================
 // Chat API using z-ai-web-dev-sdk
 // =============================================================================

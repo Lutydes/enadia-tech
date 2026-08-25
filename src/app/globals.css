@@ -419,3 +419,12 @@
   color: #00f0ff;
   font-weight: 600;
 }
+
+/* Netlify auto-injects a "Powered by Netlify" promo widget (an iframe with
+   id="nl-badge-frame") into every page via /.netlify/scripts/hud. It sits
+   fixed bottom-right at max z-index and overlaps the chat send button.
+   There's no per-visitor dismissal that sticks for everyone, so hide the
+   injected iframe outright. */
+#nl-badge-frame {
+  display: none !important;
+}

@@ -3,6 +3,10 @@ import { groqChatCompletion } from '@/lib/groq';
 import { db } from '@/lib/db';
 import { getAuthUser, requireAuth, jsonResponse, errorResponse, AuthError } from '@/lib/auth-middleware';
 
+// Essay correction retries the Groq call up to MAX_RETRIES times; request the
+// longest function duration the hosting plan allows so it isn't cut off mid-retry.
+export const maxDuration = 60;
+
 const ESSAY_SYSTEM_PROMPT = `Você é um corretor especialista do ENADE. Corrija a resposta dissertativa do aluno considerando:
 1) Adequação ao comando da questão
 2) Correção conceitual
@@ -118,14 +122,22 @@ export async function POST(request: NextRequest) {
         where: { id: questionId },
         select: { id: true, statement: true, context: true, type: true },
       });
-      if (!question) return errorResponse('Questão não encontrada.', 404);
-      if (question.type !== 'DISSERTATIVA') {
-        return errorResponse('Esta questão não é dissertativa.', 400);
+      if (question) {
+        if (question.type !== 'DISSERTATIVA') {
+          return errorResponse('Esta questão não é dissertativa.', 400);
+        }
+        dbQuestionId = question.id;
+        fullStatement = question.context
+          ? `Contexto: ${question.context}\n\nEnunciado: ${question.statement}`
+          : question.statement;
+      } else if (hasQuestionStatement) {
+        // Question comes from the in-memory essay pool (not the DB) — the
+        // client already sent the full statement, so correct against that
+        // instead of failing with "not found".
+        fullStatement = questionStatement.trim();
+      } else {
+        return errorResponse('Questão não encontrada.', 404);
       }
-      dbQuestionId = question.id;
-      fullStatement = question.context
-        ? `Contexto: ${question.context}\n\nEnunciado: ${question.statement}`
-        : question.statement;
     } else {
       fullStatement = questionStatement.trim();
     }
