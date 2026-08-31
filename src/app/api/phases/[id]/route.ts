@@ -1,14 +1,13 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    requireRole(request, Role.MASTER);
+    requireRole(request, 'MASTER');
     const { id } = await params;
 
     const existing = await db.phaseConfig.findUnique({ where: { id } });

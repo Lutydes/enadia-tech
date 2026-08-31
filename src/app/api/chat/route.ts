@@ -1,159 +1,101 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { groqChatCompletion } from '@/lib/groq';
 
-const SYSTEM_PROMPT = `Você é a EnadIA, uma assistente de IA avançada criada para ajudar estudantes de Computação a se prepararem para o ENADE (Exame Nacional de Desempenho dos Estudantes) no Brasil.
+// Groq completions can take longer than the platform's default function
+// timeout; request the longest duration the hosting plan allows.
+export const maxDuration = 60;
 
-**NOVO COMPORTAMENTO AUTÔNOMO:**
-Caso o aluno peça para você gerar ou criar questões inéditas, ou se o aluno interagir e você julgar necessário testá-lo com uma questão padrão ENADE e taxonomia de Bloom, VOCÊ DEVE CRIAR A QUESTÃO E SALVÁ-LA NO BANCO DE DADOS usando a ferramenta (tool) 'save_generated_enade_question' ANTES de apresentá-la ao aluno.
-Você tem permissão para criar questões à vontade para testar o aluno, desde que chame a ferramenta para salvar no banco. 
-Sempre que você criar uma questão, você DEVE chamar a tool 'save_generated_enade_question' com os dados da questão. Só depois de salvar, apresente a questão ao aluno no chat.
+// =============================================================================
+// Chat API using z-ai-web-dev-sdk
+// =============================================================================
 
-IDENTIDADE:
+const SYSTEM_PROMPT = `Você é a **EnadIA**, uma assistente de IA avançada criada para ajudar estudantes de Computação a se prepararem para o **ENADE** (Exame Nacional de Desempenho dos Estudantes) no Brasil.
+
+## IDENTIDADE
 - Assistente inteligente, cordial e didática.
 - Especialista em Computação e TI.
+- Responde SEMPRE em português brasileiro.
 
-SOBRE AS QUESTÕES ENADE:
-- Sempre contextualizadas com situações-problema.
-- Múltipla escolha (5 alternativas A a E).
-- Dificuldade balanceada.
+## REGRAS DE FORMATAÇÃO (OBRIGATÓRIO)
+- Use markdown de forma LIMPA e CONSISTENTE.
+- Para listas de alternativas, use APENAS este formato:
+  **A)** Texto da alternativa
+  **B)** Texto da alternativa
+  **C)** Texto da alternativa
+  **D)** Texto da alternativa
+  **E)** Texto da alternativa
+- NUNCA use "1.", "2." etc para numerar alternativas. Use SEMPRE A) B) C) D) E).
+- Use \\[code\\] para blocos de código pequenos e \\\[\\[linguagem\\]\\[ para blocos de código maiores.
+- Use **negrito** para termos-chave.
+- Mantenha parágrafos curtos (máximo 3-4 linhas).
+- NUNCA inclua tool_calls, function_calls, JSON estrutural ou tags XML na resposta.
+- NUNCA misture formatos na mesma lista.
 
-IMPORTANTE: 
-- Nunca invente informações. 
-- Quando usar a tool, aguarde a confirmação de que foi salva.
-- Se a tool retornar sucesso com o código da questão gerada, mencione o código da questão para o aluno ("Criei a questão Q-XYZ para você!").`;
+## SOBRE O ENADE
+- Questões sempre contextualizadas com situações-problema
+- Múltipla escolha (5 alternativas A a E)
+- Dificuldade balanceada
+- As 15 microareas: Lógica Proposicional, Matemática Discreta, Autômatos e Linguagens Formais, POO, Algoritmos e Estruturas de Dados, Banco de Dados, Engenharia de Software, Sistemas Operacionais, Redes, Sistemas Distribuídos, Criptografia, IA, Ciência de Dados, Ética Profissional, Legislação
 
-const FALLBACK_RESPONSE = 'Desculpe, estou com dificuldades para processar sua mensagem no momento. Por favor, tente novamente em alguns segundos. Se o problema persistir, reformule sua pergunta.';
-const GROQ_API_KEY = process.env.GROQ_API_KEY || ("gsk_" + "mvQpYzhN5DH" + "7EflKbeNJ" + "WGdyb3FYFLy" + "bkBYtCu8px" + "qL2orJQC1sO");
+## COMO AJUDAR
+- Explicar conceitos de forma clara com exemplos
+- Resolver questões passo a passo
+- Criar questões no estilo ENADE quando pedido
+- Dar dicas de estudo por tema
+- Sugerir estratégias para o dia da prova
 
-const tools = [
-  {
-    type: "function",
-    function: {
-      name: "save_generated_enade_question",
-      description: "Salva uma nova questão padrão ENADE gerada pela EnadIA no banco de dados.",
-      parameters: {
-        type: "object",
-        properties: {
-          statement: { type: "string", description: "O enunciado principal da questão." },
-          context: { type: "string", description: "O texto de contexto/situação-problema da questão (opcional)." },
-          correctAnswer: { type: "string", description: "A letra da alternativa correta (A, B, C, D ou E)." },
-          explanation: { type: "string", description: "A justificativa completa do gabarito." },
-          difficulty: { type: "string", enum: ["fácil", "médio", "difícil"], description: "O nível de dificuldade." },
-          microarea: { type: "string", description: "A microárea ou tema da questão (ex: Engenharia de Software, Banco de Dados)." },
-          alternatives: {
-            type: "array",
-            description: "As 5 alternativas da questão.",
-            items: {
-              type: "object",
-              properties: {
-                letter: { type: "string", description: "A, B, C, D ou E" },
-                text: { type: "string", description: "O texto da alternativa" }
-              },
-              required: ["letter", "text"]
-            }
-          }
-        },
-        required: ["statement", "correctAnswer", "explanation", "difficulty", "microarea", "alternatives"]
-      }
-    }
-  }
-];
+IMPORTANTE: Nunca invente informações. Se não souber, diga com honestidade.`;
 
-async function callGroqAPI(messages: Array<any>): Promise<string> {
-  const payload: any = {
-    model: 'llama-3.3-70b-versatile',
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...messages
-    ],
-    temperature: 0.7,
-    max_tokens: 1500,
-    tools: tools,
-    tool_choice: "auto"
-  };
+const FALLBACK_RESPONSE = 'Desculpe, estou com dificuldades para processar sua mensagem no momento. Por favor, tente novamente em alguns segundos.';
 
-  let response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
-    body: JSON.stringify(payload)
-  });
+// Sanitize AI response to prevent formatting issues
+function sanitizeResponse(content: string): string {
+  let s = content;
 
-  if (!response.ok) throw new Error('Groq API failed');
-  let data = await response.json();
-  let responseMessage = data.choices[0].message;
+  // === PHASE 1: Remove tool-call / function-call artifacts ===
+  s = s.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, '');
+  s = s.replace(/<function_call>[\s\S]*?<\/function_call>/gi, '');
+  s = s.replace(/\[TOOL_CALL\][\s\S]*?\[\/TOOL_CALL\]/gi, '');
+  s = s.replace(/```json[\s\S]*?```\s*$/gm, '');
+  s = s.replace(/```tool_call[\s\S]*?```/gi, '');
+  s = s.replace(/```function_call[\s\S]*?```/gi, '');
 
-  // Handle Tool Calls
-  if (responseMessage.tool_calls) {
-    const newMessages = [...payload.messages, responseMessage];
-    
-    for (const toolCall of responseMessage.tool_calls) {
-      if (toolCall.function.name === 'save_generated_enade_question') {
-        const args = JSON.parse(toolCall.function.arguments);
-        let microareaId = '';
-        
-        // Try to find microarea
-        const ma = await db.microarea.findFirst({
-          where: { name: { contains: args.microarea } }
-        });
-        
-        if (ma) {
-          microareaId = ma.id;
-        } else {
-          // fallback microarea
-          const firstMa = await db.microarea.findFirst();
-          if (firstMa) microareaId = firstMa.id;
-        }
+  // === PHASE 2: Normalize alternative markers to **X)** format ===
+  // Handle: (A), A), A., a), a., A-, (a), 1. A), 1) A), "Alternativa A:", "Opção A:"
+  s = s.replace(/^\s*(?:Alternativa\s+|Opção\s+)?\(?([aA])\)?[).\-:]\s+/gm, '**A)** ');
+  s = s.replace(/^\s*(?:Alternativa\s+|Opção\s+)?\(?([bB])\)?[).\-:]\s+/gm, '**B)** ');
+  s = s.replace(/^\s*(?:Alternativa\s+|Opção\s+)?\(?([cC])\)?[).\-:]\s+/gm, '**C)** ');
+  s = s.replace(/^\s*(?:Alternativa\s+|Opção\s+)?\(?([dD])\)?[).\-:]\s+/gm, '**D)** ');
+  s = s.replace(/^\s*(?:Alternativa\s+|Opção\s+)?\(?([eE])\)?[).\-:]\s+/gm, '**E)** ');
 
-        if (!microareaId) {
-          newMessages.push({ tool_call_id: toolCall.id, role: "tool", name: toolCall.function.name, content: JSON.stringify({ error: "Banco de dados sem microáreas cadastradas." }) });
-          continue;
-        }
+  // Remove numeric prefixes before alternatives: "1. **A)**" → "**A)**"
+  s = s.replace(/^\s*\d+[.)]\s*\*\*([A-E])\)\*\*\s/gm, '**$1)** ');
 
-        const code = `Q-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        
-        try {
-          const q = await db.question.create({
-            data: {
-              code,
-              type: 'OBJETIVA',
-              statement: args.statement,
-              context: args.context || null,
-              correctAnswer: args.correctAnswer,
-              explanation: args.explanation,
-              difficulty: args.difficulty,
-              microareaId,
-              source: 'enadia-gerada',
-              status: 'ATIVA',
-              alternatives: {
-                create: args.alternatives.map((alt: any) => ({ letter: alt.letter, text: alt.text }))
-              }
-            }
-          });
-          newMessages.push({ tool_call_id: toolCall.id, role: "tool", name: toolCall.function.name, content: JSON.stringify({ success: true, questionCode: q.code, message: "Questão salva no banco com sucesso!" }) });
-        } catch (e: any) {
-          newMessages.push({ tool_call_id: toolCall.id, role: "tool", name: toolCall.function.name, content: JSON.stringify({ error: e.message }) });
-        }
-      }
-    }
+  // === PHASE 3: Fix broken bold markers ===
+  // Fix "** text **" (spaces inside) → "**text**"
+  s = s.replace(/\*\*\s+([^*]+?)\s+\*\*/g, '**$1**');
 
-    // Second call to Groq with tool results
-    let secondResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: newMessages,
-        temperature: 0.7,
-        max_tokens: 1500
-      })
-    });
-    
-    if (!secondResponse.ok) throw new Error('Groq second API call failed');
-    let secondData = await secondResponse.json();
-    return secondData.choices[0].message.content;
-  }
+  // Fix unclosed bold at end of line
+  s = s.replace(/^\*\*([^*\n]+)$/gm, '**$1**');
 
-  return responseMessage.content;
+  // === PHASE 4: Clean up whitespace ===
+  s = s.split('\n').map(line => line.trimEnd()).join('\n');
+  s = s.replace(/\n{4,}/g, '\n\n\n');
+
+  // === PHASE 5: Remove stray XML/HTML tags ===
+  s = s.replace(/<(?!\/?(?:code|pre|strong|em|b|i|u|br|hr|h[1-6]|p|div|span|ul|ol|li|table|tr|td|th|thead|tbody|blockquote|sup|sub))\/?[a-zA-Z][^>]*>/g, '');
+
+  // === PHASE 6: Fix empty/broken markdown elements ===
+  // Remove empty code blocks
+  s = s.replace(/```[a-z]*\s*\n\s*```/g, '');
+  // Remove empty bold: **** → nothing
+  s = s.replace(/\*{4,}/g, '');
+
+  // === PHASE 7: Final cleanup ===
+  // Remove leading/trailing whitespace from the entire response
+  s = s.trim();
+
+  return s;
 }
 
 export async function POST(request: NextRequest) {
@@ -165,13 +107,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Mensagens são obrigatórias.' }, { status: 400 });
     }
 
-    const validMessages = messages.filter((msg: any) => msg.role && msg.content && typeof msg.content === 'string');
+    const validMessages = messages.filter(
+      (msg: { role?: string; content?: unknown }) =>
+        msg.role && msg.content && typeof msg.content === 'string'
+    );
     if (validMessages.length === 0) {
       return NextResponse.json({ error: 'Formato de mensagens inválido.' }, { status: 400 });
     }
 
-    const aiResponse = await callGroqAPI(validMessages);
-    return NextResponse.json({ message: aiResponse });
+    // Build conversation with system prompt
+    const apiMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...validMessages.map((m: { role: string; content: string }) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
+    ];
+
+    // Keep last 20 messages max to avoid token limit issues
+    const trimmedMessages = apiMessages.length > 21
+      ? [apiMessages[0], ...apiMessages.slice(-20)]
+      : apiMessages;
+
+    const aiResponse = await groqChatCompletion(trimmedMessages, { temperature: 0.7 });
+
+    if (!aiResponse) {
+      return NextResponse.json(
+        { message: FALLBACK_RESPONSE, isFallback: true }
+      );
+    }
+
+    const sanitized = sanitizeResponse(aiResponse);
+
+    return NextResponse.json({ message: sanitized });
   } catch (error) {
     console.error('Chat API error:', error);
     return NextResponse.json({ message: FALLBACK_RESPONSE, isFallback: true });

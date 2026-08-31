@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function POST(
   request: NextRequest,
@@ -52,9 +51,9 @@ export async function POST(
         order: config.order,
         alternatives: q.alternatives,
         // Hide correct answer for students
-        ...(authUser.role === Role.ALUNO ? { correctAnswer: undefined, explanation: undefined } : {}),
+        ...(authUser.role === 'ALUNO' ? { correctAnswer: undefined, explanation: undefined } : {}),
         // Show correct answer for professors/masters
-        ...(authUser.role !== Role.ALUNO ? { correctAnswer: q.correctAnswer, explanation: q.explanation } : {}),
+        ...(authUser.role !== 'ALUNO' ? { correctAnswer: q.correctAnswer, explanation: q.explanation } : {}),
       };
     });
 

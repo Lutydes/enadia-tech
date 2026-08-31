@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth, requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function GET(
   request: NextRequest,
@@ -30,7 +29,7 @@ export async function GET(
 
     // Hide correct answer and explanation from students if question is ATIVA
     const authUser = requireAuth(request);
-    if (authUser.role === Role.ALUNO && question.status === 'ATIVA') {
+    if (authUser.role === 'ALUNO' && question.status === 'ATIVA') {
       return jsonResponse({
         question: {
           ...question,
@@ -55,7 +54,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authUser = requireRole(request, Role.PROFESSOR, Role.MASTER);
+    const authUser = requireRole(request, 'PROFESSOR', 'MASTER');
     const { id } = await params;
 
     const existing = await db.question.findUnique({ where: { id } });
@@ -85,7 +84,7 @@ export async function PUT(
     } = body;
 
     // If professor is updating, they must be the author or a MASTER
-    if (authUser.role === Role.PROFESSOR && existing.authorId !== authUser.userId) {
+    if (authUser.role === 'PROFESSOR' && existing.authorId !== authUser.userId) {
       return errorResponse('Você só pode editar suas próprias questões.', 403);
     }
 
@@ -151,7 +150,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authUser = requireRole(request, Role.PROFESSOR, Role.MASTER);
+    const authUser = requireRole(request, 'PROFESSOR', 'MASTER');
     const { id } = await params;
 
     const existing = await db.question.findUnique({ where: { id } });
@@ -159,12 +158,12 @@ export async function DELETE(
       return errorResponse('Questão não encontrada.', 404);
     }
 
-    if (authUser.role === Role.PROFESSOR && existing.authorId !== authUser.userId) {
+    if (authUser.role === 'PROFESSOR' && existing.authorId !== authUser.userId) {
       return errorResponse('Você só pode excluir suas próprias questões.', 403);
     }
 
     // Only PROFESSOR is restricted to RASCUNHO or REPROVADA; MASTER can delete any question
-    if (authUser.role !== Role.MASTER && !['RASCUNHO', 'REPROVADA'].includes(existing.status)) {
+    if (authUser.role !== 'MASTER' && !['RASCUNHO', 'REPROVADA'].includes(existing.status)) {
       return errorResponse('Apenas questões em rascunho ou reprovadas podem ser excluídas.', 400);
     }
 

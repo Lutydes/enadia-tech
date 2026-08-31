@@ -35,6 +35,8 @@ import {
 import { useAppStore } from '@/store/app-store';
 // Phase system removed - all features unlocked
 
+const APP_BRAND = process.env.NEXT_PUBLIC_APP_BRAND || 'EnadIA TECH';
+
 interface DashboardStats {
   overview: {
     totalResponses: number;
@@ -299,7 +301,7 @@ export function Dashboard() {
                 <div className="w-3 h-3 rounded-full animate-pulse bg-[#00f0ff]" />
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-[#00f0ff]">
-                    EnadIA TECH
+                    {APP_BRAND}
                   </span>
                   <p className="text-[10px] text-slate-500 mt-0.5">
                     Todas as funcionalidades desbloqueadas

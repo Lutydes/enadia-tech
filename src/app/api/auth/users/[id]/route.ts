@@ -2,14 +2,14 @@ import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
 import { requireRole, getAuthUser, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    requireRole(request, Role.MASTER);
+    const authUser = requireRole(request, 'MASTER');
+    const instance = authUser.instance || process.env.APP_INSTANCE || 'ENADIA';
 
     const { id } = await params;
 
@@ -30,6 +30,7 @@ export async function GET(
         lastLogin: true,
         createdAt: true,
         updatedAt: true,
+        instance: true,
         _count: {
           select: {
             responses: true,
@@ -40,6 +41,11 @@ export async function GET(
     });
 
     if (!user) {
+      return errorResponse('Usuário não encontrado.', 404);
+    }
+
+    // Cross-instance check: can only manage users in the same instance
+    if (user.instance !== instance) {
       return errorResponse('Usuário não encontrado.', 404);
     }
 
@@ -58,7 +64,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    requireRole(request, Role.MASTER);
+    const authUser = requireRole(request, 'MASTER');
+    const instance = authUser.instance || process.env.APP_INSTANCE || 'ENADIA';
 
     const { id } = await params;
     const body = await request.json();
@@ -66,6 +73,11 @@ export async function PUT(
 
     const existing = await db.user.findUnique({ where: { id } });
     if (!existing) {
+      return errorResponse('Usuário não encontrado.', 404);
+    }
+
+    // Cross-instance check
+    if (existing.instance !== instance) {
       return errorResponse('Usuário não encontrado.', 404);
     }
 
@@ -80,14 +92,14 @@ export async function PUT(
     if (disciplina !== undefined) updateData.disciplina = disciplina;
 
     if (email && email !== existing.email) {
-      const emailTaken = await db.user.findFirst({ where: { email, NOT: { id } } });
+      const emailTaken = await db.user.findFirst({ where: { email, instance, NOT: { id } } });
       if (emailTaken) return errorResponse('Email já em uso.', 409);
       updateData.email = email;
     }
 
     if (ra !== undefined && ra !== existing.ra) {
       if (ra) {
-        const raTaken = await db.user.findFirst({ where: { ra, NOT: { id } } });
+        const raTaken = await db.user.findFirst({ where: { ra, instance, NOT: { id } } });
         if (raTaken) return errorResponse('RA já em uso.', 409);
       }
       updateData.ra = ra;
@@ -111,6 +123,7 @@ export async function PUT(
         lastLogin: true,
         createdAt: true,
         updatedAt: true,
+        instance: true,
       },
     });
 
@@ -129,10 +142,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    requireRole(request, Role.MASTER);
+    const authUser = requireRole(request, 'MASTER');
+    const instance = authUser.instance || process.env.APP_INSTANCE || 'ENADIA';
 
     const { id } = await params;
-    const authUser = getAuthUser(request);
 
     if (authUser?.userId === id) {
       return errorResponse('Você não pode excluir sua própria conta.', 400);
@@ -140,6 +153,11 @@ export async function DELETE(
 
     const existing = await db.user.findUnique({ where: { id } });
     if (!existing) {
+      return errorResponse('Usuário não encontrado.', 404);
+    }
+
+    // Cross-instance check
+    if (existing.instance !== instance) {
       return errorResponse('Usuário não encontrado.', 404);
     }
 

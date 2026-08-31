@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,7 +32,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    requireRole(request, Role.MASTER);
+    requireRole(request, 'MASTER');
 
     const body = await request.json();
     const { name, code, macroarea, description, color, order } = body;

@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth, requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function GET(
   request: NextRequest,
@@ -10,35 +9,41 @@ export async function GET(
   try {
     const authUser = requireAuth(request);
     const { userId } = await params;
+    const instance = authUser.instance || process.env.APP_INSTANCE || 'ENADIA';
 
     // Students can only see their own report; masters/professors can see any
-    if (authUser.role === Role.ALUNO && authUser.userId !== userId) {
+    if (authUser.role === 'ALUNO' && authUser.userId !== userId) {
       return errorResponse('Acesso negado.', 403);
     }
 
     const user = await db.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, ra: true, role: true, createdAt: true },
+      select: { id: true, name: true, ra: true, role: true, createdAt: true, instance: true },
     });
 
     if (!user) {
       return errorResponse('Usuário não encontrado.', 404);
     }
 
+    // Cross-instance access check: target user must belong to the same instance
+    if (user.instance !== instance) {
+      return errorResponse('Acesso negado.', 403);
+    }
+
     // Total stats
     const totalResponses = await db.studentResponse.count({
-      where: { userId },
+      where: { userId, instance },
     });
 
     const correctResponses = await db.studentResponse.count({
-      where: { userId, isCorrect: true },
+      where: { userId, isCorrect: true, instance },
     });
 
     const hitRate = totalResponses > 0 ? Math.round((correctResponses / totalResponses) * 100) : 0;
 
     // Performance by microarea
     const responses = await db.studentResponse.findMany({
-      where: { userId },
+      where: { userId, instance },
       select: {
         isCorrect: true,
         createdAt: true,

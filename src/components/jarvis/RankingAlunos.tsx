@@ -27,6 +27,7 @@ interface RankingEntry {
   periodo: number | null;
   totalAnswered: number;
   totalCorrect: number;
+  points: number;
   hitRate: number;
   avgResponseTime: number | null;
 }
@@ -68,7 +69,7 @@ function getPodiumStyle(position: number) {
 export function RankingAlunos() {
   const [ranking, setRanking] = useState<RankingEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<'hitRate' | 'totalAnswered' | 'avgTime'>('hitRate');
+  const [sortBy, setSortBy] = useState<'points' | 'hitRate' | 'totalAnswered' | 'avgTime'>('points');
 
   useEffect(() => {
     async function loadRanking() {
@@ -88,6 +89,8 @@ export function RankingAlunos() {
 
   const sortedRanking = [...ranking].sort((a, b) => {
     switch (sortBy) {
+      case 'points':
+        return b.points !== a.points ? b.points - a.points : b.hitRate - a.hitRate;
       case 'hitRate':
         return b.hitRate !== a.hitRate ? b.hitRate - a.hitRate : b.totalCorrect - a.totalCorrect;
       case 'totalAnswered':
@@ -135,6 +138,7 @@ export function RankingAlunos() {
         {/* Sort buttons */}
         <div className="flex gap-2 mt-4">
           {[
+            { key: 'points' as const, label: 'Pontos', icon: <Zap size={12} /> },
             { key: 'hitRate' as const, label: 'Taxa de Acerto', icon: <Target size={12} /> },
             { key: 'totalAnswered' as const, label: 'Questões', icon: <BarChart3 size={12} /> },
             { key: 'avgTime' as const, label: 'Velocidade', icon: <Clock size={12} /> },
@@ -271,6 +275,10 @@ export function RankingAlunos() {
 
                       {/* Stats */}
                       <div className="flex items-center gap-4 flex-shrink-0">
+                        <div className="text-center">
+                          <p className="text-xs text-slate-500">Pontos</p>
+                          <p className="text-sm font-mono font-bold text-cyan-400">{entry.points}</p>
+                        </div>
                         <div className="text-center hidden sm:block">
                           <p className="text-xs text-slate-500">Questões</p>
                           <p className="text-sm font-mono text-slate-300">{entry.totalAnswered}</p>
@@ -338,7 +346,11 @@ function PodiumCard({ entry }: { entry: RankingEntry }) {
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-2">
+        <div className="p-2 rounded-lg bg-black/20">
+          <p className="text-[10px] text-slate-500">Pontos</p>
+          <p className="text-sm font-mono font-bold text-cyan-400">{entry.points}</p>
+        </div>
         <div className="p-2 rounded-lg bg-black/20">
           <p className="text-[10px] text-slate-500">Acerto</p>
           <p className={`text-sm font-mono font-bold ${

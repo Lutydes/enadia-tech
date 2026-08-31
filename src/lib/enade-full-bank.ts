@@ -198,6 +198,24 @@ for (const q of [
 export const allEnadeQuestions: EnadeQuestionFull[] = Array.from(allQuestionsMap.values());
 
 // ---------------------------------------------------------------------------
+// DB-backed questions registration
+// ---------------------------------------------------------------------------
+// Questions created/imported via the admin panel live in the database (Question
+// table), not in this static bank. registerDbQuestions() merges them into
+// `allEnadeQuestions` in place so every helper below (random selection, counts
+// per microarea, etc.) picks them up automatically with zero other code changes.
+const knownQuestionIds = new Set(allEnadeQuestions.map((q) => q.id));
+
+export const registerDbQuestions = (questions: EnadeQuestionFull[]): void => {
+  for (const q of questions) {
+    if (!knownQuestionIds.has(q.id)) {
+      knownQuestionIds.add(q.id);
+      allEnadeQuestions.push(q);
+    }
+  }
+};
+
+// ---------------------------------------------------------------------------
 // Helper Functions
 // ---------------------------------------------------------------------------
 

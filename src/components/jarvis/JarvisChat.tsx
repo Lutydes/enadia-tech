@@ -71,6 +71,12 @@ export function JarvisChat() {
     setInput('');
     setIsLoading(true);
 
+    // Serverless functions have a hard execution timeout — abort client-side
+    // before that so the UI never spins forever waiting for a response that
+    // will never arrive.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+
     try {
       const chatHistory = messages
         .filter((m) => m.id !== 'welcome')
@@ -81,6 +87,7 @@ export function JarvisChat() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: chatHistory }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -97,13 +104,17 @@ export function JarvisChat() {
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
+      const isTimeout = error instanceof DOMException && error.name === 'AbortError';
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: '⚠️ Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.',
+        content: isTimeout
+          ? '⚠️ A resposta demorou demais e foi interrompida. Tente uma pergunta mais curta ou tente novamente.'
+          : '⚠️ Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.',
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
+      clearTimeout(timeoutId);
       setIsLoading(false);
     }
   };

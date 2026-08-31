@@ -1,14 +1,13 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authUser = requireRole(request, Role.PROFESSOR, Role.MASTER);
+    const authUser = requireRole(request, 'PROFESSOR', 'MASTER');
     const { id } = await params;
 
     const question = await db.question.findUnique({

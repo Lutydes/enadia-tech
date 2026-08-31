@@ -1,11 +1,11 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
-    requireRole(request, Role.MASTER, Role.PROFESSOR);
+    const authUser = requireRole(request, 'MASTER', 'PROFESSOR');
+    const instance = authUser.instance || process.env.APP_INSTANCE || 'ENADIA';
 
     // Run independent queries in parallel for performance
     const [
@@ -18,13 +18,13 @@ export async function GET(request: NextRequest) {
       totalResponses,
       allMicroareas,
     ] = await Promise.all([
-      db.user.count(),
-      db.user.count({ where: { active: true } }),
-      db.user.count({ where: { role: Role.ALUNO } }),
+      db.user.count({ where: { instance } }),
+      db.user.count({ where: { active: true, instance } }),
+      db.user.count({ where: { role: 'ALUNO', instance } }),
       db.question.groupBy({ by: ['status'], _count: { id: true } }),
       db.question.count(),
       db.question.count({ where: { status: 'ATIVA' } }),
-      db.studentResponse.count(),
+      db.studentResponse.count({ where: { instance } }),
       db.microarea.findMany({ select: { id: true, name: true, code: true, color: true } }),
     ]);
 
@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     if (totalResponses > 0) {
       // Single query to get all response data with microarea info (no N+1)
       const allResponses = await db.studentResponse.findMany({
+        where: { instance },
         select: {
           isCorrect: true,
           question: {
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
 
     // Student ranking - optimized: fetch all student responses in bulk instead of N+1
     const students = await db.user.findMany({
-      where: { role: Role.ALUNO },
+      where: { role: 'ALUNO', instance },
       select: {
         id: true,
         name: true,
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
     // Batch fetch all student responses in a single query
     const studentIds = students.map(s => s.id);
     const allStudentResponses = studentIds.length > 0 ? await db.studentResponse.findMany({
-      where: { userId: { in: studentIds } },
+      where: { userId: { in: studentIds }, instance },
       select: { userId: true, isCorrect: true },
     }) : [];
 
@@ -135,6 +136,7 @@ export async function GET(request: NextRequest) {
 
     // Recent activity (simplified - last 10 responses)
     const recentResponses = await db.studentResponse.findMany({
+      where: { instance },
       take: 10,
       orderBy: { createdAt: 'desc' },
       select: {

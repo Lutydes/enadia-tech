@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { EnadeQuestionFull, getRandomFullQuestions } from '@/lib/enade-full-bank';
+import { loadDbQuestionsIntoBank } from '@/lib/fetch-db-questions';
+import { EssayQuestion, pickEssayQuestions } from '@/lib/essay-questions';
 // Keep backward-compatible type alias
 export type EnadeQuestion = EnadeQuestionFull;
 
@@ -46,6 +48,12 @@ interface AppState {
   selectedDifficulty: string;
   selectedCount: number;
 
+  // Essay (dissertativa) questions for the current simulado attempt.
+  // Lives in the store (not component state) so it survives the
+  // SimuladoEnade view being unmounted/remounted (e.g. navigating to
+  // the chat to ask about a question and coming back).
+  essayQuestions: EssayQuestion[];
+
   // Stats
   totalAnswered: number;
   totalCorrect: number;
@@ -69,6 +77,10 @@ interface AppState {
   setPanel: (panel: PanelType) => void;
   restoreSession: () => Promise<void>;
 
+  // DB-backed question bank
+  dbQuestionsReady: boolean;
+  loadDbQuestions: (token: string) => Promise<void>;
+
   // Methods for quiz
   startQuiz: (topic?: string, difficulty?: string, count?: number) => void;
   answerQuestion: (questionId: string, answer: string) => void;
@@ -89,6 +101,7 @@ export const useAppStore = create<AppState>()(
       token: null,
       isLoading: true,
       currentPanel: 'student',
+      dbQuestionsReady: false,
 
       // View navigation
       currentView: 'chat',
@@ -107,6 +120,7 @@ export const useAppStore = create<AppState>()(
       selectedTopic: 'Todos',
       selectedDifficulty: 'Todos',
       selectedCount: 10,
+      essayQuestions: [],
 
       // Stats
       totalAnswered: 0,
@@ -118,12 +132,19 @@ export const useAppStore = create<AppState>()(
       chatPreFilledQuestion: null,
       setChatPreFilledQuestion: (question) => set({ chatPreFilledQuestion: question }),
 
+      // DB-backed question bank
+      loadDbQuestions: async (token) => {
+        await loadDbQuestionsIntoBank(token);
+        set({ dbQuestionsReady: true });
+      },
+
       // Auth methods
       login: (user, token) => {
         set({ user, token, isLoading: false });
         if (typeof window !== 'undefined') {
           localStorage.setItem('enadia-token', token);
         }
+        get().loadDbQuestions(token);
       },
       logout: () => {
         set({ user: null, token: null, isLoading: false, currentPanel: 'student' });
@@ -150,6 +171,7 @@ export const useAppStore = create<AppState>()(
               // By default, everyone starts in student panel, and can use the sidebar button to access master/professor panels
               const panel = 'student';
               set({ user, token, isLoading: false, currentPanel: panel });
+              get().loadDbQuestions(token);
             } else {
               // Token invalid or expired — clear it
               localStorage.removeItem('enadia-token');
@@ -181,6 +203,7 @@ export const useAppStore = create<AppState>()(
           selectedTopic: topic || get().selectedTopic,
           selectedDifficulty: difficulty || get().selectedDifficulty,
           selectedCount: count || get().selectedCount,
+          essayQuestions: pickEssayQuestions(2),
         });
       },
 
@@ -238,6 +261,7 @@ export const useAppStore = create<AppState>()(
           quizCompleted: false,
           quizStartTime: null,
           quizEndTime: null,
+          essayQuestions: [],
         });
       },
 

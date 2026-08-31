@@ -1,6 +1,7 @@
 // =============================================================================
-// EnadIA TECH - Schema LOCAL (SQLite)
-// Para migrar para Supabase, substitua este arquivo pelo conteúdo de schema.supabase.prisma
+// EnadIA TECH - Schema LOCAL (SQLite) with Multi-Tenancy
+// =============================================================================
+// Para deploy no Supabase, use o arquivo schema.supabase.prisma
 // =============================================================================
 
 generator client {
@@ -8,91 +9,50 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-}
-
-// ─── ENUMS ───────────────────────────────────────────
-
-enum Role {
-  MASTER
-  PROFESSOR
-  ALUNO
-}
-
-enum QuestionType {
-  OBJETIVA
-  DISSERTATIVA
-}
-
-enum QuestionStatus {
-  RASCUNHO
-  AGUARDANDO_TESTE
-  EM_TESTE
-  AGUARDANDO_VALIDACAO
-  APROVADA
-  REPROVADA
-  ATIVA
-  INATIVA
-}
-
-enum SimuladoType {
-  DIAGNOSTICO
-  MICROAREA
-  MACROAREA
-  GERAL
-  LIVRE
-  ENADE_SIMULADO
-}
-
-enum Modalidade {
-  EAD
-  PRESENCIAL
-  SEMIPRESENCIAL
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 // ─── MODELS ──────────────────────────────────────────
 
 model User {
-  id            String       @id @default(cuid())
-  email         String       @unique
+  id            String   @id @default(cuid())
+  email         String
   name          String
   password      String
-  role          Role         @default(ALUNO)
-  ra            String?      @unique
+  role          String   @default("ALUNO")
+  ra            String?
   avatar        String?
-  active        Boolean      @default(true)
+  active        Boolean  @default(true)
   lastLogin     DateTime?
+  instance      String   @default("ENADIA")
 
-  // Student fields
   curso         String?
   periodo       Int?
-  modalidade    Modalidade?  @default(PRESENCIAL)
-
-  // Professor fields
+  modalidade    String?  @default("PRESENCIAL")
   disciplina    String?
 
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   responses          StudentResponse[]
   authoredQuestions   Question[]       @relation("QuestionAuthor")
   validatedQuestions Question[]       @relation("QuestionValidator")
   essayAnswers       EssayAnswer[]
+  localResponses     LocalQuestionResponse[]
 }
 
 model Microarea {
-  id          String    @id @default(cuid())
-  name        String
-  code        String    @unique
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique
   macroarea   String
   description String
-  color       String    @default("#3b82f6")
-  order       Int       @default(0)
+  color       String   @default("#3b82f6")
+  order       Int      @default(0)
   elements    Element[]
   questions   Question[]
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime @default(now())
 }
 
 model Element {
@@ -109,34 +69,34 @@ model Element {
 }
 
 model Question {
-  id              String         @id @default(cuid())
-  code            String         @unique
-  type            QuestionType   @default(OBJETIVA)
+  id              String   @id @default(cuid())
+  code            String   @unique
+  type            String   @default("OBJETIVA")
   statement       String
   context         String?
   correctAnswer   String
   explanation     String?
-  difficulty      String         @default("médio")
+  difficulty      String   @default("médio")
 
   triA            Float?
   triB            Float?
   triC            Float?
-  triCalibrated   Boolean        @default(false)
+  triCalibrated   Boolean  @default(false)
 
-  source          String         @default("elaborada")
+  source          String   @default("elaborada")
   sourceYear      Int?
   enadeId         String?
 
   microareaId     String
-  microarea       Microarea      @relation(fields: [microareaId], references: [id])
+  microarea       Microarea  @relation(fields: [microareaId], references: [id])
   elementId       String?
-  element         Element?       @relation(fields: [elementId], references: [id])
+  element         Element?   @relation(fields: [elementId], references: [id])
   authorId        String?
-  author          User?          @relation("QuestionAuthor", fields: [authorId], references: [id])
+  author          User?     @relation("QuestionAuthor", fields: [authorId], references: [id])
   validatorId     String?
-  validator       User?          @relation("QuestionValidator", fields: [validatorId], references: [id])
+  validator       User?     @relation("QuestionValidator", fields: [validatorId], references: [id])
 
-  status          QuestionStatus @default(RASCUNHO)
+  status          String   @default("RASCUNHO")
 
   alternatives    Alternative[]
   responses       StudentResponse[]
@@ -144,8 +104,8 @@ model Question {
   tags            QuestionTag[]
   essayAnswers    EssayAnswer[]
 
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Alternative {
@@ -158,16 +118,16 @@ model Alternative {
 }
 
 model Simulado {
-  id            String        @id @default(cuid())
+  id            String   @id @default(cuid())
   title         String
   description   String?
-  type          SimuladoType  @default(LIVRE)
+  type          String   @default("LIVRE")
   phase         Int?
   timeLimit     Int?
-  questionCount Int           @default(10)
-  active        Boolean       @default(true)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  questionCount Int      @default(10)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   configs       SimuladoConfig[]
   responses     StudentResponse[]
@@ -193,6 +153,7 @@ model StudentResponse {
   answer        String
   isCorrect     Boolean?
   responseTime  Int?
+  instance      String    @default("ENADIA")
   createdAt     DateTime  @default(now())
 }
 
@@ -206,7 +167,8 @@ model EssayAnswer {
   answer        String
   aiFeedback    String?
   aiScore       Float?
-  createdAt     DateTime  @default(now())
+  instance      String    @default("ENADIA")
+  createdAt     DateTime @default(now())
 }
 
 model QuestionTag {
@@ -222,4 +184,20 @@ model SystemConfig {
   value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model LocalQuestionResponse {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  questionBankId String
+  topic         String
+  macroarea     String
+  difficulty    String?
+  answer        String
+  correctAnswer String
+  isCorrect     Boolean
+  responseTime  Int?
+  instance      String   @default("ENADIA")
+  createdAt     DateTime @default(now())
 }

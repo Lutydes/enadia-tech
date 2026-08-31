@@ -1,31 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireRole, jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
 
-    // Get all student responses grouped by user
-    const responses = await db.studentResponse.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            ra: true,
-            role: true,
-            curso: true,
-            modalidade: true,
-            periodo: true,
+    const instance = process.env.APP_INSTANCE || 'ENADIA';
+
+    // FIX: Fetch BOTH StudentResponse AND LocalQuestionResponse, filtered by instance
+    const [dbResponses, localResponses] = await Promise.all([
+      db.studentResponse.findMany({
+        where: { instance },
+        include: {
+          user: {
+            select: {
+              id: true, name: true, email: true, ra: true, role: true,
+              curso: true, modalidade: true, periodo: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+      }),
+      db.localQuestionResponse.findMany({
+        where: { instance },
+        include: {
+          user: {
+            select: {
+              id: true, name: true, email: true, ra: true, role: true,
+              curso: true, modalidade: true, periodo: true,
+            },
+          },
+        },
+      }),
+    ]);
 
     // Group by user
     const userStats = new Map<string, {
@@ -43,35 +51,50 @@ export async function GET(request: NextRequest) {
       responseTimeCount: number;
     }>();
 
-    for (const r of responses) {
-      const existing = userStats.get(r.userId) || {
-        userId: r.userId,
-        name: r.user.name,
-        email: r.user.email,
-        ra: r.user.ra,
-        role: r.user.role,
-        curso: r.user.curso,
-        modalidade: r.user.modalidade,
-        periodo: r.user.periodo,
+    function initStats(userId: string, user: { name: string; email: string; ra: string | null; role: string; curso: string | null; modalidade: string | null; periodo: number | null }) {
+      return userStats.get(userId) || {
+        userId,
+        name: user.name || 'Desconhecido',
+        email: user.email || '',
+        ra: user.ra,
+        role: user.role,
+        curso: user.curso,
+        modalidade: user.modalidade,
+        periodo: user.periodo,
         totalAnswered: 0,
         totalCorrect: 0,
         totalResponseTime: 0,
         responseTimeCount: 0,
       };
+    }
 
+    // Process DB responses
+    for (const r of dbResponses) {
+      const existing = initStats(r.userId, r.user);
       existing.totalAnswered++;
       if (r.isCorrect) existing.totalCorrect++;
       if (r.responseTime) {
         existing.totalResponseTime += r.responseTime;
         existing.responseTimeCount++;
       }
-
       userStats.set(r.userId, existing);
     }
 
-    // Also include users with no responses yet
+    // Process LOCAL BANK responses (THE FIX!)
+    for (const r of localResponses) {
+      const existing = initStats(r.userId, r.user);
+      existing.totalAnswered++;
+      if (r.isCorrect) existing.totalCorrect++;
+      if (r.responseTime) {
+        existing.totalResponseTime += r.responseTime;
+        existing.responseTimeCount++;
+      }
+      userStats.set(r.userId, existing);
+    }
+
+    // Include users with no responses yet (filtered by instance)
     const allUsers = await db.user.findMany({
-      where: { active: true },
+      where: { active: true, instance },
       select: { id: true, name: true, email: true, ra: true, role: true, curso: true, modalidade: true, periodo: true },
     });
 
@@ -108,15 +131,15 @@ export async function GET(request: NextRequest) {
         periodo: u.periodo,
         totalAnswered: u.totalAnswered,
         totalCorrect: u.totalCorrect,
+        points: u.totalCorrect, // 1 ponto por resposta correta — acumula conforme mais simulados são feitos
         hitRate: u.totalAnswered > 0 ? Math.round((u.totalCorrect / u.totalAnswered) * 100) : 0,
         avgResponseTime: u.responseTimeCount > 0
           ? Math.round(u.totalResponseTime / u.responseTimeCount)
           : null,
       }))
       .sort((a, b) => {
-        // Sort by hit rate desc, then by total correct desc
-        if (b.hitRate !== a.hitRate) return b.hitRate - a.hitRate;
-        return b.totalCorrect - a.totalCorrect;
+        if (b.points !== a.points) return b.points - a.points;
+        return b.hitRate - a.hitRate;
       })
       .slice(0, limit)
       .map((item, index) => ({
@@ -136,11 +159,13 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    requireRole(request, Role.MASTER);
+    const authUser = requireRole(request, 'MASTER');
+    const instance = authUser.instance || process.env.APP_INSTANCE || 'ENADIA';
 
-    // Delete all student responses and essay answers
-    await db.essayAnswer.deleteMany();
-    await db.studentResponse.deleteMany();
+    // Delete ALL responses for this instance only
+    await db.essayAnswer.deleteMany({ where: { instance } });
+    await db.studentResponse.deleteMany({ where: { instance } });
+    await db.localQuestionResponse.deleteMany({ where: { instance } });
 
     return jsonResponse({ message: 'Ranking resetado com sucesso. Todas as respostas foram removidas.' });
   } catch (error) {

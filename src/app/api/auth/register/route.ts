@@ -2,12 +2,13 @@ import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword, generateToken } from '@/lib/auth';
 import { jsonResponse, errorResponse } from '@/lib/auth-middleware';
-import { Role, Modalidade } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { name, email, password, ra, role, curso, periodo, modalidade, disciplina } = body;
+
+    const instanceValue = process.env.APP_INSTANCE || 'ENADIA';
 
     // Validate required fields
     if (!name || !email || !password || !ra) {
@@ -15,13 +16,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate role
-    const userRole = role || Role.ALUNO;
-    if (!Object.values(Role).includes(userRole)) {
+    const userRole = role || 'ALUNO';
+    if (!['ALUNO', 'PROFESSOR', 'MASTER'].includes(userRole)) {
       return errorResponse('Role inválido. Use ALUNO ou PROFESSOR.', 400);
     }
 
     // Validate ALUNO-specific fields
-    if (userRole === Role.ALUNO) {
+    if (userRole === 'ALUNO') {
       if (!curso) {
         return errorResponse('Curso é obrigatório para alunos.', 400);
       }
@@ -31,20 +32,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate PROFESSOR-specific fields
-    if (userRole === Role.PROFESSOR) {
+    if (userRole === 'PROFESSOR') {
       if (!disciplina) {
         return errorResponse('Disciplina é obrigatória para professores.', 400);
       }
     }
 
-    // Check for duplicate email
-    const existingEmail = await db.user.findUnique({ where: { email } });
+    // Check for duplicate email within this instance
+    const existingEmail = await db.user.findFirst({ where: { email, instance: instanceValue } });
     if (existingEmail) {
       return errorResponse('Já existe um usuário com este email.', 409);
     }
 
-    // Check for duplicate RA
-    const existingRa = await db.user.findUnique({ where: { ra } });
+    // Check for duplicate RA within this instance
+    const existingRa = await db.user.findFirst({ where: { ra, instance: instanceValue } });
     if (existingRa) {
       return errorResponse('Já existe um usuário com este RA.', 409);
     }
@@ -53,11 +54,11 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await hashPassword(password);
 
     // Determine modalidade (defaults to PRESENCIAL for ALUNO)
-    const userModalidade = userRole === Role.ALUNO
-      ? (modalidade && Object.values(Modalidade).includes(modalidade) ? modalidade : Modalidade.PRESENCIAL)
+    const userModalidade = userRole === 'ALUNO'
+      ? (modalidade && ['EAD', 'PRESENCIAL', 'SEMIPRESENCIAL'].includes(modalidade) ? modalidade : 'PRESENCIAL')
       : null;
 
-    // Create user
+    // Create user with instance
     const user = await db.user.create({
       data: {
         email,
@@ -65,10 +66,11 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         role: userRole,
         ra,
-        curso: userRole === Role.ALUNO ? curso : null,
-        periodo: userRole === Role.ALUNO ? parseInt(String(periodo)) : null,
+        instance: instanceValue,
+        curso: userRole === 'ALUNO' ? curso : null,
+        periodo: userRole === 'ALUNO' ? parseInt(String(periodo)) : null,
         modalidade: userModalidade,
-        disciplina: userRole === Role.PROFESSOR ? disciplina : null,
+        disciplina: userRole === 'PROFESSOR' ? disciplina : null,
       },
       select: {
         id: true,
@@ -82,14 +84,16 @@ export async function POST(request: NextRequest) {
         periodo: true,
         modalidade: true,
         disciplina: true,
+        instance: true,
       },
     });
 
-    // Generate JWT token (same as login)
+    // Generate JWT token with instance
     const token = generateToken({
       userId: user.id,
       email: user.email,
       role: user.role,
+      instance: user.instance,
     });
 
     return jsonResponse({ user, token }, 201);
